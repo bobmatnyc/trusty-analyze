@@ -25,6 +25,30 @@ const TOO_MANY_PARAMS_THRESHOLD: usize = 5;
 ///
 /// Uses string scanning — no tree-sitter dep needed. Cheap enough to run on
 /// every chunk during analysis.
+/// Smart dispatcher: uses tree-sitter AST walk if `language` is one of
+/// `"rust"`, `"typescript"`, `"javascript"`, or `"tsx"`, otherwise falls back
+/// to the language-agnostic text heuristic. If the AST walk fails (parse
+/// error, grammar load failure), the text heuristic is used as a safety net.
+///
+/// Why: gives the analyzer a single, language-aware entry point so callers
+/// don't have to know which backend to call.
+/// What: matches `language` lowercase, dispatches to the AST function, and
+/// falls back to `compute_complexity` if the AST function returns `None`.
+/// Test: `dispatcher_returns_metrics_for_known_and_unknown_languages` covers
+/// the rust / typescript / unknown paths.
+pub fn compute_complexity_for(content: &str, language: &str) -> ComplexityMetrics {
+    let lang = language.to_ascii_lowercase();
+    match lang.as_str() {
+        "rust" | "rs" => crate::complexity_ts::compute_complexity_rust(content)
+            .unwrap_or_else(|| compute_complexity(content)),
+        "typescript" | "ts" | "tsx" | "javascript" | "js" | "jsx" => {
+            crate::complexity_ts::compute_complexity_typescript(content)
+                .unwrap_or_else(|| compute_complexity(content))
+        }
+        _ => compute_complexity(content),
+    }
+}
+
 pub fn compute_complexity(content: &str) -> ComplexityMetrics {
     let cyclomatic = count_decision_points(content) + 1;
     let cognitive = count_cognitive(content);
@@ -193,6 +217,22 @@ mod tests {
             .smells
             .iter()
             .any(|s| matches!(s, CodeSmell::MissingDocstring)));
+    }
+
+    #[test]
+    fn dispatcher_returns_metrics_for_known_and_unknown_languages() {
+        let rust_src = "fn f(a: i32) -> i32 { if a > 0 { a } else { -a } }";
+        let m_rust = compute_complexity_for(rust_src, "rust");
+        assert!(m_rust.cyclomatic >= 2);
+
+        let ts_src = "function f(a: number) { return a > 0 ? a : -a; }";
+        let m_ts = compute_complexity_for(ts_src, "typescript");
+        assert!(m_ts.cyclomatic >= 2);
+
+        let unk_src = "if x { y } else { z }";
+        let m_unk = compute_complexity_for(unk_src, "cobol");
+        // Should fall back to the text heuristic, which still finds branches.
+        assert!(m_unk.cyclomatic >= 1);
     }
 
     #[test]

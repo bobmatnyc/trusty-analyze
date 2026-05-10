@@ -17,10 +17,12 @@
 pub mod blame;
 pub mod client;
 pub mod complexity;
+pub mod complexity_ts;
 pub mod facts;
 pub mod quality;
 pub mod registry;
 
 pub use client::{IndexSummary, TrustySearchClient};
+pub use complexity::compute_complexity_for;
 pub use facts::FactStore;
 pub use registry::AnalyzerRegistry;

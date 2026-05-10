@@ -1789,6 +1789,10 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "tree-sitter",
+ "tree-sitter-javascript",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
  "trusty-analyzer-lang",
  "trusty-common",
 ]
