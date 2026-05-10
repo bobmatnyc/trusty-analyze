@@ -18,16 +18,18 @@ pub mod blame;
 pub mod client;
 pub mod complexity;
 pub mod complexity_ts;
+pub mod concept_cluster;
 pub mod facts;
 pub mod quality;
 pub mod registry;
 
 pub use client::{IndexSummary, TrustySearchClient};
 pub use complexity::compute_complexity_for;
+pub use concept_cluster::{bow_embedding, cluster, ClusterResult, ConceptCluster};
 pub use facts::FactStore;
 pub use registry::AnalyzerRegistry;
 
 #[cfg(test)]
-pub(crate) mod test_utils;
-#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+pub(crate) mod test_utils;

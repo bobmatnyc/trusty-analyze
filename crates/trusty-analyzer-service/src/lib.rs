@@ -33,7 +33,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use trusty_analyzer_core::{
-    facts::new_fact, quality, AnalyzerRegistry, FactStore, IndexSummary, TrustySearchClient,
+    bow_embedding, cluster as run_cluster, facts::new_fact, quality, AnalyzerRegistry,
+    ClusterResult, FactStore, IndexSummary, TrustySearchClient,
 };
 use trusty_common::{KgGraph, KgNode};
 
@@ -82,6 +83,7 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
         .route("/indexes/:id/quality", get(quality_report))
         .route("/indexes/:id/graph", get(graph_for_index))
         .route("/indexes/:id/entities", get(entities_for_index))
+        .route("/indexes/:id/clusters", get(clusters_for_index))
         .route("/facts", get(list_facts).post(upsert_fact))
         .route("/facts/:id", delete(delete_fact))
         .with_state(Arc::new(state))
@@ -265,6 +267,83 @@ async fn entities_for_index(
             .then_with(|| a.name.cmp(&b.name))
     });
     Ok(Json(nodes))
+}
+
+#[derive(Deserialize)]
+pub struct ClusterQueryParams {
+    /// Number of clusters to compute. Defaults to 8, clamped to [1, 50].
+    pub k: Option<usize>,
+    /// Embedding method. Reserved for future neural backends; only "bow"
+    /// is implemented today and used regardless of this value.
+    #[serde(default)]
+    pub method: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ClusterResponseItem {
+    pub id: usize,
+    pub label: String,
+    pub members: Vec<String>,
+    pub cohesion: f32,
+    pub size: usize,
+}
+
+#[derive(Serialize)]
+pub struct ClusterResponse {
+    pub k: usize,
+    pub iterations: usize,
+    pub chunk_count: usize,
+    pub clusters: Vec<ClusterResponseItem>,
+}
+
+fn cluster_items_from(r: ClusterResult) -> Vec<ClusterResponseItem> {
+    r.clusters
+        .into_iter()
+        .map(|c| ClusterResponseItem {
+            id: c.id,
+            label: c.label,
+            size: c.members.len(),
+            members: c.members,
+            cohesion: c.cohesion,
+        })
+        .collect()
+}
+
+/// Why: surfaces "what themes does this codebase contain?" without needing a
+/// full knowledge graph or neural embedder. Useful for codebase exploration
+/// and high-level summaries.
+/// What: fetches chunks for `index`, derives a 256-dim bag-of-words vector
+/// per chunk, runs seeded k-means, and returns the cluster assignments.
+/// Test: covered indirectly by trusty-analyzer-core's `concept_cluster` tests;
+/// the route wiring is exercised by `clusters_route_returns_502_when_search_down`.
+async fn clusters_for_index(
+    State(state): State<Arc<AnalyzerAppState>>,
+    Path(id): Path<String>,
+    Query(params): Query<ClusterQueryParams>,
+) -> Result<Json<ClusterResponse>, StatusCode> {
+    const BOW_DIM: usize = 256;
+    let k = params.k.unwrap_or(8).clamp(1, 50);
+    let chunks = fetch_chunks(&state, &id).await?;
+    if chunks.is_empty() {
+        return Ok(Json(ClusterResponse {
+            k,
+            iterations: 0,
+            chunk_count: 0,
+            clusters: Vec::new(),
+        }));
+    }
+    let embeddings: Vec<(String, Vec<f32>)> = chunks
+        .iter()
+        .map(|c| (c.id.clone(), bow_embedding(&c.content, BOW_DIM)))
+        .collect();
+    let result = run_cluster(&embeddings, k, 100, 42);
+    let iterations = result.iterations;
+    Ok(Json(ClusterResponse {
+        k,
+        iterations,
+        chunk_count: chunks.len(),
+        clusters: cluster_items_from(result),
+    }))
 }
 
 async fn fetch_chunks(

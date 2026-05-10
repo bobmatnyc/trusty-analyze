@@ -15,6 +15,7 @@
 //! | `list_facts`          | `GET /facts`                                 |
 //! | `upsert_fact`         | `POST /facts`                                |
 //! | `delete_fact`         | `DELETE /facts/:id`                          |
+//! | `cluster_concepts`    | `GET /indexes/:id/clusters`                  |
 //! | `analyzer_health`     | `GET /health`                                |
 
 pub mod stdio;
@@ -309,6 +310,16 @@ impl AnalyzerMcpServer {
                 }
                 self.get(&format!("/indexes/{index_id}/entities{q}")).await
             }
+            "cluster_concepts" => {
+                let index_id = args
+                    .get("index")
+                    .or_else(|| args.get("index_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("default");
+                let k = args.get("k").and_then(Value::as_u64).unwrap_or(8);
+                self.get(&format!("/indexes/{index_id}/clusters?k={k}"))
+                    .await
+            }
             "analyzer_health" => self.get("/health").await,
             _ => Err(DispatchError::UnknownTool),
         }
@@ -520,6 +531,18 @@ pub fn tool_descriptors() -> Value {
                     "index":    { "type": "string" },
                     "index_id": { "type": "string" },
                     "language": { "type": "string" }
+                }
+            }
+        },
+        {
+            "name": "cluster_concepts",
+            "description": "Group chunks into concept clusters using k-means over bag-of-words embeddings",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "index":    { "type": "string" },
+                    "index_id": { "type": "string" },
+                    "k":        { "type": "number" }
                 }
             }
         },
