@@ -6,13 +6,17 @@
 //!
 //! What: For each `CodeChunk`, parses the content with tree-sitter-java,
 //! walks the tree, and emits:
-//! - `Class` for `class_declaration`
+//! - `Class` for `class_declaration` and `enum_declaration`
 //! - `Interface` for `interface_declaration`
 //! - `Method` for `method_declaration` inside a class/interface
+//! - `Method` for `constructor_declaration` (constructors)
+//! - `Field` for `field_declaration` variable declarators
 //! - `Import` + `Imports` edges for `import_declaration`
 //! - `TestCase` for methods annotated `@Test`
 //! - `Extends` edges for `superclass` clauses
 //! - `Implements` edges for `super_interfaces` clauses
+//! - `Calls` edges from each method/constructor to its direct callees,
+//!   deduplicated with `weight = call_count`
 //! - `Contains` edges from the file to top-level types and from types to
 //!   their members
 //!
@@ -187,7 +191,7 @@ fn walk(root: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph) {
         inside_type: bool,
     ) {
         match node.kind() {
-            "class_declaration" | "interface_declaration" => {
+            "class_declaration" | "interface_declaration" | "enum_declaration" => {
                 let is_iface = node.kind() == "interface_declaration";
                 let Some(name) = name_of(node, src) else {
                     return;
@@ -248,7 +252,7 @@ fn walk(root: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph) {
                 }
                 return;
             }
-            "method_declaration" => {
+            "method_declaration" | "constructor_declaration" => {
                 let Some(name) = name_of(node, src) else {
                     return;
                 };
@@ -267,10 +271,40 @@ fn walk(root: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph) {
                 graph.nodes.push(n);
                 graph.edges.push(KgEdge {
                     from: parent_id.to_string(),
-                    to: id,
+                    to: id.clone(),
                     kind: KgEdgeKind::Contains,
                     weight: 1.0,
                 });
+                if let Some(body) = node.child_by_field_name("body") {
+                    for edge in extract_calls(body, src, &id, &chunk.file) {
+                        graph.edges.push(edge);
+                    }
+                }
+                return;
+            }
+            "field_declaration" => {
+                let pub_ = is_public(node, src);
+                let doc = javadoc(node, src);
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() != "variable_declarator" {
+                        continue;
+                    }
+                    let Some(name_node) = child.child_by_field_name("name") else {
+                        continue;
+                    };
+                    let name = node_text(name_node, src);
+                    let n =
+                        make_node(KgNodeKind::Field, &name, chunk, child, pub_, doc.clone());
+                    let id = n.id.clone();
+                    graph.nodes.push(n);
+                    graph.edges.push(KgEdge {
+                        from: parent_id.to_string(),
+                        to: id,
+                        kind: KgEdgeKind::Contains,
+                        weight: 1.0,
+                    });
+                }
                 return;
             }
             "import_declaration" => {
@@ -298,6 +332,113 @@ fn walk(root: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph) {
     }
 
     recurse(root, src, chunk, graph, &file_id, false);
+}
+
+/// Extract `method_invocation` and `object_creation_expression` nodes from a
+/// method/constructor body and produce deduplicated `Calls` edges keyed by
+/// callee name.
+///
+/// Why: A function's outgoing call graph is one of the most useful pieces of
+/// static analysis we can derive cheaply and is required for graph traversal
+/// queries ("what calls auth?"). Without scoped extraction, every call site is
+/// emitted as an orphan edge with no caller, defeating the purpose.
+///
+/// What: Walks the AST subtree rooted at `body`, collects every direct
+/// invocation (skipping nested method/constructor/lambda/anonymous-class
+/// bodies so each method only emits its own direct calls), resolves the
+/// callee name, counts repeats, and returns one `KgEdge` per unique callee
+/// with `weight = call_count as f32`.
+///
+/// Test: `java_adapter_extracts_call_edges` and
+/// `java_adapter_deduplicates_repeated_calls` cover the happy paths.
+fn extract_calls(body: Node, src: &[u8], caller_id: &str, file: &str) -> Vec<KgEdge> {
+    use std::collections::HashMap;
+
+    let mut counts: HashMap<String, u32> = HashMap::new();
+
+    fn visit(node: Node, src: &[u8], counts: &mut HashMap<String, u32>) {
+        // Stop at nested function-like / class bodies so each method only
+        // attributes its own direct calls.
+        match node.kind() {
+            "method_declaration"
+            | "constructor_declaration"
+            | "lambda_expression"
+            | "class_declaration"
+            | "interface_declaration"
+            | "enum_declaration" => {
+                return;
+            }
+            "method_invocation" => {
+                if let Some(callee) = method_invocation_name(node, src) {
+                    *counts.entry(callee).or_insert(0) += 1;
+                }
+            }
+            "object_creation_expression" => {
+                if let Some(callee) = object_creation_name(node, src) {
+                    *counts.entry(callee).or_insert(0) += 1;
+                }
+            }
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            visit(child, src, counts);
+        }
+    }
+
+    visit(body, src, &mut counts);
+
+    counts
+        .into_iter()
+        .map(|(callee, count)| KgEdge {
+            from: caller_id.to_string(),
+            to: format!("java:Method:{file}:{callee}"),
+            kind: KgEdgeKind::Calls,
+            weight: count as f32,
+        })
+        .collect()
+}
+
+/// Resolve the callee name from a Java `method_invocation` node.
+///
+/// Why: Cross-file resolution is out of scope for the adapter; we only need a
+/// stable string handle for the callee.
+///
+/// What: Returns the text of the `name` field (an identifier) for both bare
+/// `foo()` and qualified `obj.foo()` invocations. Returns `None` if missing.
+///
+/// Test: Exercised indirectly by the `extract_calls` tests.
+fn method_invocation_name(call: Node, src: &[u8]) -> Option<String> {
+    call.child_by_field_name("name").map(|n| node_text(n, src))
+}
+
+/// Resolve the type name from a Java `object_creation_expression` (`new Foo()`).
+///
+/// Why: Constructor invocations are part of a method's call graph.
+///
+/// What: Walks children and returns the first `type_identifier`'s text.
+///
+/// Test: Exercised by `java_adapter_extracts_call_edges`.
+fn object_creation_name(call: Node, src: &[u8]) -> Option<String> {
+    if let Some(t) = call.child_by_field_name("type") {
+        if t.kind() == "type_identifier" {
+            return Some(node_text(t, src));
+        }
+        // scoped/parameterized types: descend to find a type_identifier
+        let mut cursor = t.walk();
+        for child in t.children(&mut cursor) {
+            if child.kind() == "type_identifier" {
+                return Some(node_text(child, src));
+            }
+        }
+    }
+    let mut cursor = call.walk();
+    for child in call.children(&mut cursor) {
+        if child.kind() == "type_identifier" {
+            return Some(node_text(child, src));
+        }
+    }
+    None
 }
 
 fn add_super_interface_edges(
@@ -415,6 +556,126 @@ mod tests {
             .nodes
             .iter()
             .any(|n| matches!(n.kind, KgNodeKind::Import)));
+    }
+
+    #[test]
+    fn java_extracts_two_methods() {
+        let a = JavaAnalyzer::new();
+        let c = make_chunk(
+            "public class Foo {\n    public void bar() {}\n    public int baz() { return 1; }\n}\n",
+        );
+        let r = a.analyze_chunks(&[c]);
+        let methods: Vec<&KgNode> = r
+            .graph
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.kind, KgNodeKind::Method))
+            .collect();
+        assert_eq!(methods.len(), 2, "expected 2 Method nodes, got {methods:?}");
+        let names: Vec<&str> = methods.iter().map(|n| n.name.as_str()).collect();
+        assert!(names.contains(&"bar"));
+        assert!(names.contains(&"baz"));
+    }
+
+    #[test]
+    fn java_extracts_field() {
+        let a = JavaAnalyzer::new();
+        let c = make_chunk("public class Foo {\n    private int count;\n    public String name;\n}\n");
+        let r = a.analyze_chunks(&[c]);
+        let fields: Vec<&KgNode> = r
+            .graph
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.kind, KgNodeKind::Field))
+            .collect();
+        assert_eq!(fields.len(), 2, "expected 2 Field nodes, got {fields:?}");
+    }
+
+    #[test]
+    fn java_extracts_constructor() {
+        let a = JavaAnalyzer::new();
+        let c = make_chunk("public class Foo {\n    public Foo() {}\n}\n");
+        let r = a.analyze_chunks(&[c]);
+        // Constructors are emitted as Method nodes with the class name.
+        assert!(
+            r.graph
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, KgNodeKind::Method) && n.name == "Foo"),
+            "expected constructor Method node 'Foo', got {:?}",
+            r.graph.nodes
+        );
+    }
+
+    #[test]
+    fn java_extracts_enum() {
+        let a = JavaAnalyzer::new();
+        let c = make_chunk("public enum Color { RED, GREEN, BLUE }\n");
+        let r = a.analyze_chunks(&[c]);
+        assert!(
+            r.graph
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, KgNodeKind::Class) && n.name == "Color"),
+            "expected enum to be emitted as Class node, got {:?}",
+            r.graph.nodes
+        );
+    }
+
+    #[test]
+    fn java_adapter_extracts_call_edges() {
+        let a = JavaAnalyzer::new();
+        let c = make_chunk(
+            "public class Foo {\n    public void caller() {\n        helper();\n        new Helper();\n    }\n    public void helper() {}\n}\n",
+        );
+        let r = a.analyze_chunks(&[c]);
+        let calls: Vec<_> = r
+            .graph
+            .edges
+            .iter()
+            .filter(|e| matches!(e.kind, KgEdgeKind::Calls))
+            .collect();
+        assert!(
+            !calls.is_empty(),
+            "expected at least one Calls edge, got none. graph={:?}",
+            r.graph
+        );
+        let has_helper = calls.iter().any(|e| e.to.contains("helper"));
+        let has_new = calls.iter().any(|e| e.to.contains("Helper"));
+        assert!(has_helper, "expected edge to 'helper', got {calls:?}");
+        assert!(has_new, "expected edge to 'Helper' (new), got {calls:?}");
+        // Caller must be scoped to the method, not the file.
+        assert!(
+            calls
+                .iter()
+                .all(|e| e.from.contains(":Method:") || e.from.contains(":TestCase:")),
+            "Calls edges should originate from a method node, got {calls:?}"
+        );
+    }
+
+    #[test]
+    fn java_adapter_deduplicates_repeated_calls() {
+        let a = JavaAnalyzer::new();
+        let c = make_chunk(
+            "public class Foo {\n    public void caller() {\n        bar();\n        bar();\n        bar();\n    }\n    public void bar() {}\n}\n",
+        );
+        let r = a.analyze_chunks(&[c]);
+        let bar_edges: Vec<_> = r
+            .graph
+            .edges
+            .iter()
+            .filter(|e| matches!(e.kind, KgEdgeKind::Calls) && e.to.contains("bar"))
+            .collect();
+        assert_eq!(
+            bar_edges.len(),
+            1,
+            "repeated calls should be deduplicated, got {bar_edges:?}"
+        );
+        assert!(
+            (bar_edges[0].weight - 3.0).abs() < f32::EPSILON,
+            "weight should reflect call count=3, got {}",
+            bar_edges[0].weight
+        );
     }
 
     #[test]
