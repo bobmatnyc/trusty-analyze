@@ -26,3 +26,8 @@ pub use client::{IndexSummary, TrustySearchClient};
 pub use complexity::compute_complexity_for;
 pub use facts::FactStore;
 pub use registry::AnalyzerRegistry;
+
+#[cfg(test)]
+pub(crate) mod test_utils;
+#[cfg(test)]
+mod integration_tests;
