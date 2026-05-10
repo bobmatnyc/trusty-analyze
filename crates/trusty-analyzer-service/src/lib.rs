@@ -32,7 +32,10 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use trusty_analyzer_core::{facts::new_fact, quality, FactStore, IndexSummary, TrustySearchClient};
+use trusty_analyzer_core::{
+    facts::new_fact, quality, AnalyzerRegistry, FactStore, IndexSummary, TrustySearchClient,
+};
+use trusty_common::{KgGraph, KgNode};
 
 /// Default port the analyzer daemon binds to. Picked to sit next to
 /// trusty-search's 7878.
@@ -43,11 +46,29 @@ pub const DEFAULT_PORT: u16 = 7879;
 pub struct AnalyzerAppState {
     pub search: TrustySearchClient,
     pub facts: FactStore,
+    pub registry: Arc<AnalyzerRegistry>,
 }
 
 impl AnalyzerAppState {
     pub fn new(search: TrustySearchClient, facts: FactStore) -> Self {
-        Self { search, facts }
+        Self {
+            search,
+            facts,
+            registry: Arc::new(AnalyzerRegistry::default_registry()),
+        }
+    }
+
+    /// Construct with an explicit registry (useful for tests and plug-ins).
+    pub fn with_registry(
+        search: TrustySearchClient,
+        facts: FactStore,
+        registry: Arc<AnalyzerRegistry>,
+    ) -> Self {
+        Self {
+            search,
+            facts,
+            registry,
+        }
     }
 }
 
@@ -59,6 +80,8 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
         .route("/indexes/:id/complexity_hotspots", get(complexity_hotspots))
         .route("/indexes/:id/smells", get(smells))
         .route("/indexes/:id/quality", get(quality_report))
+        .route("/indexes/:id/graph", get(graph_for_index))
+        .route("/indexes/:id/entities", get(entities_for_index))
         .route("/facts", get(list_facts).post(upsert_fact))
         .route("/facts/:id", delete(delete_fact))
         .with_state(Arc::new(state))
@@ -174,6 +197,74 @@ async fn quality_report(
 ) -> Result<Json<quality::QualityReport>, StatusCode> {
     let chunks = fetch_chunks(&state, &id).await?;
     Ok(Json(quality::aggregate_quality(&chunks)))
+}
+
+#[derive(Deserialize)]
+pub struct GraphQueryParams {
+    /// Restrict to a single language (`"rust"`, `"typescript"`, ...).
+    pub language: Option<String>,
+}
+
+/// Why: Phase 2 surfaces the language-neutral knowledge graph to consumers
+/// (Claude Code, web UIs, etc.) so they can navigate symbols across files.
+/// What: Fetch chunks for `index`, run the language registry, optionally
+/// filter to `?language=`, and return the merged `KgGraph` as JSON.
+/// Test: with a mock index containing a Rust chunk, GET returns at least
+/// one Function node tagged `language=rust`.
+async fn graph_for_index(
+    State(state): State<Arc<AnalyzerAppState>>,
+    Path(id): Path<String>,
+    Query(params): Query<GraphQueryParams>,
+) -> Result<Json<KgGraph>, StatusCode> {
+    let chunks = fetch_chunks(&state, &id).await?;
+    let res = state.registry.analyze(&chunks);
+    let mut graph = res.graph;
+    if let Some(lang) = params.language.as_deref() {
+        let keep_nodes: std::collections::HashSet<String> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.language == lang)
+            .map(|n| n.id.clone())
+            .collect();
+        graph.nodes.retain(|n| keep_nodes.contains(&n.id));
+        graph
+            .edges
+            .retain(|e| keep_nodes.contains(&e.from) && keep_nodes.contains(&e.to));
+    }
+    Ok(Json(graph))
+}
+
+#[derive(Deserialize)]
+pub struct EntitiesQueryParams {
+    pub kind: Option<String>,
+    pub language: Option<String>,
+}
+
+/// Why: Many consumers only want a flat node listing, sorted, for browsing
+/// (autocomplete, file outlines).
+/// What: Same pipeline as `/graph`, but returns just `Vec<KgNode>` sorted by
+/// `(kind, name)`. Optional `?kind=` and `?language=` filters.
+/// Test: filtering by `kind=Function` returns only Function nodes.
+async fn entities_for_index(
+    State(state): State<Arc<AnalyzerAppState>>,
+    Path(id): Path<String>,
+    Query(params): Query<EntitiesQueryParams>,
+) -> Result<Json<Vec<KgNode>>, StatusCode> {
+    let chunks = fetch_chunks(&state, &id).await?;
+    let res = state.registry.analyze(&chunks);
+    let mut nodes = res.graph.nodes;
+    if let Some(lang) = params.language.as_deref() {
+        nodes.retain(|n| n.language == lang);
+    }
+    if let Some(kind) = params.kind.as_deref() {
+        nodes.retain(|n| format!("{:?}", n.kind) == kind);
+    }
+    nodes.sort_by(|a, b| {
+        format!("{:?}", a.kind)
+            .cmp(&format!("{:?}", b.kind))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    Ok(Json(nodes))
 }
 
 async fn fetch_chunks(

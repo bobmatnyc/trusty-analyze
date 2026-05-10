@@ -2,6 +2,7 @@
 members = [
     "crates/trusty-common",
     "crates/trusty-analyzer-core",
+    "crates/trusty-analyzer-lang",
     "crates/trusty-analyzer-service",
     "crates/trusty-analyzer-mcp",
     ".",

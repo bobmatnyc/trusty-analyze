@@ -279,6 +279,36 @@ impl AnalyzerMcpServer {
                     .ok_or_else(|| DispatchError::InvalidParams("missing 'id' (u64)".into()))?;
                 self.delete(&format!("/facts/{id}")).await
             }
+            "extract_graph" => {
+                let index_id = args
+                    .get("index")
+                    .or_else(|| args.get("index_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("default");
+                let mut path = format!("/indexes/{index_id}/graph");
+                if let Some(lang) = args.get("language").and_then(Value::as_str) {
+                    path.push_str(&format!("?language={}", urlencode(lang)));
+                }
+                self.get(&path).await
+            }
+            "list_entities" => {
+                let index_id = args
+                    .get("index")
+                    .or_else(|| args.get("index_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("default");
+                let mut q = String::new();
+                for key in ["kind", "language"] {
+                    if let Some(v) = args.get(key).and_then(Value::as_str) {
+                        let sep = if q.is_empty() { '?' } else { '&' };
+                        q.push(sep);
+                        q.push_str(key);
+                        q.push('=');
+                        q.push_str(&urlencode(v));
+                    }
+                }
+                self.get(&format!("/indexes/{index_id}/entities{q}")).await
+            }
             "analyzer_health" => self.get("/health").await,
             _ => Err(DispatchError::UnknownTool),
         }
@@ -480,6 +510,31 @@ pub fn tool_descriptors() -> Value {
             "name": "analyzer_health",
             "description": "Probe analyzer daemon liveness and version",
             "inputSchema": { "type": "object", "properties": {} }
+        },
+        {
+            "name": "extract_graph",
+            "description": "Build the multi-language knowledge graph (nodes + edges) for an index",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "index":    { "type": "string" },
+                    "index_id": { "type": "string" },
+                    "language": { "type": "string" }
+                }
+            }
+        },
+        {
+            "name": "list_entities",
+            "description": "List symbol-level entities (functions, classes, ...) for an index",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "index":    { "type": "string" },
+                    "index_id": { "type": "string" },
+                    "kind":     { "type": "string" },
+                    "language": { "type": "string" }
+                }
+            }
         }
     ])
 }

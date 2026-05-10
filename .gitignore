@@ -4,3 +4,5 @@
 *.redb-*
 .DS_Store
 .claude-mpm/
+.fastembed_cache/
+.claude/

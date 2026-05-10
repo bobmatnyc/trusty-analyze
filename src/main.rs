@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use trusty_analyzer_core::{facts::new_fact, FactStore, TrustySearchClient};
+use trusty_analyzer_core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
 use trusty_analyzer_mcp::AnalyzerMcpServer;
 use trusty_analyzer_service::{serve, AnalyzerAppState, DEFAULT_PORT};
 
@@ -159,6 +159,28 @@ async fn main() -> Result<()> {
                 report.pct_grade_a * 100.0,
                 report.smell_count
             );
+            // Run the language registry for a per-language structural summary.
+            let registry = AnalyzerRegistry::default_registry();
+            let static_res = registry.analyze(&chunks);
+            println!(
+                "\nAnalyzed {} chunks across {} files",
+                static_res.analyzed_chunks, static_res.analyzed_files
+            );
+            // Roll up nodes per language.
+            use std::collections::BTreeMap;
+            let mut per_lang: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+            for n in &static_res.graph.nodes {
+                per_lang.entry(n.language.clone()).or_insert((0, 0)).0 += 1;
+            }
+            for e in &static_res.graph.edges {
+                if let Some(n) = static_res.graph.nodes.iter().find(|n| n.id == e.from) {
+                    per_lang.entry(n.language.clone()).or_insert((0, 0)).1 += 1;
+                }
+            }
+            for (lang, (nodes, edges)) in &per_lang {
+                println!("  {lang}: {nodes} nodes, {edges} edges");
+            }
+
             let hotspots = trusty_analyzer_core::quality::complexity_hotspots(&chunks, top_k);
             println!("\nTop {top_k} complexity hotspots:");
             for (i, c) in hotspots.iter().enumerate() {

@@ -13,9 +13,11 @@ pub mod chunk;
 pub mod complexity;
 pub mod entity;
 pub mod facts;
+pub mod graph;
 
 pub use blame::ChunkBlame;
 pub use chunk::CodeChunk;
 pub use complexity::{CodeSmell, ComplexityGrade, ComplexityMetrics};
 pub use entity::{EdgeKind, EntityType, RawEntity};
 pub use facts::FactRecord;
+pub use graph::{KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};

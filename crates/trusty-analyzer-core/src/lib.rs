@@ -19,6 +19,8 @@ pub mod client;
 pub mod complexity;
 pub mod facts;
 pub mod quality;
+pub mod registry;
 
 pub use client::{IndexSummary, TrustySearchClient};
 pub use facts::FactStore;
+pub use registry::AnalyzerRegistry;
