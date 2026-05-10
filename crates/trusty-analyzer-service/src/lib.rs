@@ -19,22 +19,26 @@
 //! Test: `cargo test -p trusty-analyzer-service` boots the router with a stub
 //! search client and exercises every route end-to-end.
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
 use axum::{
+    body::Bytes,
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{delete, get},
+    routing::{delete, get, post},
     Router,
 };
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
+use tokio::sync::RwLock;
 use trusty_analyzer_core::{
-    bow_embedding, cluster as run_cluster, facts::new_fact, quality, AnalyzerRegistry,
-    ClusterResult, FactStore, IndexSummary, TrustySearchClient,
+    bow_embedding, cluster as run_cluster, extract_kg_from_scip, facts::new_fact, quality,
+    AnalyzerRegistry, ClusterResult, FactStore, IndexSummary, ScipIngestSummary,
+    TrustySearchClient,
 };
 use trusty_common::{KgGraph, KgNode};
 use trusty_embedder::{BowEmbedder, Embedder, EmbedderKind};
@@ -53,6 +57,11 @@ pub struct AnalyzerAppState {
     /// asks for `method=neural`. Falls back to a fresh `BowEmbedder` when the
     /// request asks for `method=bow` (the default).
     pub embedder: Arc<dyn Embedder>,
+    /// Per-index SCIP-derived knowledge graph overlay, populated by
+    /// `POST /indexes/:id/scip`. Merged into the response of
+    /// `GET /indexes/:id/graph` so consumers see the union of tree-sitter
+    /// extraction and any precise SCIP indexes the user has uploaded.
+    pub scip_overlays: Arc<RwLock<HashMap<String, KgGraph>>>,
 }
 
 impl AnalyzerAppState {
@@ -64,6 +73,7 @@ impl AnalyzerAppState {
             facts,
             registry: Arc::new(AnalyzerRegistry::default_registry()),
             embedder: Arc::new(BowEmbedder::default()),
+            scip_overlays: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -79,6 +89,7 @@ impl AnalyzerAppState {
             facts,
             registry,
             embedder: Arc::new(BowEmbedder::default()),
+            scip_overlays: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -102,6 +113,7 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
         .route("/indexes/:id/graph", get(graph_for_index))
         .route("/indexes/:id/entities", get(entities_for_index))
         .route("/indexes/:id/clusters", get(clusters_for_index))
+        .route("/indexes/:id/scip", post(ingest_scip))
         .route("/facts", get(list_facts).post(upsert_fact))
         .route("/facts/:id", delete(delete_fact))
         .with_state(Arc::new(state))
@@ -239,6 +251,14 @@ async fn graph_for_index(
     let chunks = fetch_chunks(&state, &id).await?;
     let res = state.registry.analyze(&chunks);
     let mut graph = res.graph;
+    // Merge any SCIP-derived overlay that the user has uploaded for this
+    // index. SCIP supplies fully-resolved cross-file symbols which the
+    // tree-sitter adapters cannot derive on their own, so the union is
+    // strictly more useful than either alone.
+    if let Some(overlay) = state.scip_overlays.read().await.get(&id).cloned() {
+        graph.merge(overlay);
+        graph = trusty_analyzer_core::link(graph);
+    }
     if let Some(lang) = params.language.as_deref() {
         let keep_nodes: std::collections::HashSet<String> = graph
             .nodes
@@ -396,6 +416,41 @@ async fn clusters_for_index(
         iterations,
         chunk_count: chunks.len(),
         clusters: cluster_items_from(result),
+    }))
+}
+
+#[derive(Serialize)]
+pub struct ScipIngestResponse {
+    pub index_id: String,
+    #[serde(flatten)]
+    pub summary: ScipIngestSummary,
+}
+
+/// Why: SCIP indexes carry fully-resolved cross-file symbols that the
+/// tree-sitter adapters can't derive (call resolution, trait implementations
+/// across files, generics). Ingesting them is how the analyzer goes from
+/// "approximate" to "precise" for languages with a real SCIP indexer.
+/// What: accepts a SCIP `Index` protobuf as raw bytes, converts it to a
+/// `KgGraph`, stores it as a per-index overlay, and returns ingest stats.
+/// The overlay is merged into `/indexes/:id/graph` responses.
+/// Test: `scip_ingest_round_trip` POSTs a hand-built SCIP index and verifies
+/// the resulting graph appears in the `/graph` response.
+async fn ingest_scip(
+    State(state): State<Arc<AnalyzerAppState>>,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Json<ScipIngestResponse>, (StatusCode, Json<serde_json::Value>)> {
+    let (graph, summary) = extract_kg_from_scip(&body).map_err(|e| {
+        tracing::warn!("SCIP ingest for {id} failed: {e:#}");
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": format!("invalid SCIP protobuf: {e:#}") })),
+        )
+    })?;
+    state.scip_overlays.write().await.insert(id.clone(), graph);
+    Ok(Json(ScipIngestResponse {
+        index_id: id,
+        summary,
     }))
 }
 
@@ -564,6 +619,79 @@ mod tests {
         let (status, listing) = json_get(app, "/facts").await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(listing["count"], 1);
+    }
+
+    #[tokio::test]
+    async fn scip_ingest_accepts_valid_index_and_stores_overlay() {
+        use protobuf::{EnumOrUnknown, Message};
+        use scip::types::{
+            symbol_information::Kind as ScipKind, Document, Index, Occurrence, SymbolInformation,
+        };
+
+        let (state, _tmp) = make_state();
+        let overlays = state.scip_overlays.clone();
+        let app = build_router(state);
+
+        // Build a one-symbol SCIP index.
+        let mut sym = SymbolInformation::new();
+        sym.symbol = "rust . . hello().".into();
+        sym.kind = EnumOrUnknown::new(ScipKind::Function);
+        sym.display_name = "hello".into();
+        let mut occ = Occurrence::new();
+        occ.symbol = sym.symbol.clone();
+        occ.symbol_roles = 0x1;
+        occ.range = vec![1, 0, 5];
+        let mut doc = Document::new();
+        doc.relative_path = "src/lib.rs".into();
+        doc.language = "rust".into();
+        doc.symbols.push(sym);
+        doc.occurrences.push(occ);
+        let mut index = Index::new();
+        index.documents.push(doc);
+        let bytes = index.write_to_bytes().expect("encode scip index");
+
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/indexes/myidx/scip")
+                    .header("content-type", "application/octet-stream")
+                    .body(Body::from(bytes))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+        let parsed: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(parsed["index_id"], "myidx");
+        assert_eq!(parsed["documents"], 1);
+        assert_eq!(parsed["kg_nodes"], 1);
+
+        // The overlay should be persisted in state.
+        let overlays = overlays.read().await;
+        let g = overlays.get("myidx").expect("overlay stored");
+        assert_eq!(g.node_count(), 1);
+        assert_eq!(g.nodes[0].name, "hello");
+    }
+
+    #[tokio::test]
+    async fn scip_ingest_rejects_garbage_bytes() {
+        let (state, _tmp) = make_state();
+        let app = build_router(state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/indexes/x/scip")
+                    .header("content-type", "application/octet-stream")
+                    .body(Body::from(vec![0xFF, 0xFF, 0xFF, 0xFF]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]

@@ -16,6 +16,7 @@
 //! | `upsert_fact`         | `POST /facts`                                |
 //! | `delete_fact`         | `DELETE /facts/:id`                          |
 //! | `cluster_concepts`    | `GET /indexes/:id/clusters`                  |
+//! | `ingest_scip`         | `POST /indexes/:id/scip`                     |
 //! | `analyzer_health`     | `GET /health`                                |
 
 pub mod stdio;
@@ -325,8 +326,49 @@ impl AnalyzerMcpServer {
                 self.get(&path).await
             }
             "analyzer_health" => self.get("/health").await,
+            "ingest_scip" => {
+                use base64::Engine;
+                let index_id = args
+                    .get("index")
+                    .or_else(|| args.get("index_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("default");
+                let b64 = require_str(args, "scip_base64")?;
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(b64)
+                    .map_err(|e| {
+                        DispatchError::InvalidParams(format!(
+                            "scip_base64 is not valid base64: {e}"
+                        ))
+                    })?;
+                self.post_bytes(&format!("/indexes/{index_id}/scip"), bytes)
+                    .await
+            }
             _ => Err(DispatchError::UnknownTool),
         }
+    }
+
+    async fn post_bytes(&self, path: &str, body: Vec<u8>) -> Result<Value, DispatchError> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self
+            .http
+            .post(&url)
+            .header("content-type", "application/octet-stream")
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| DispatchError::Transport(format!("POST {url}: {e}")))?;
+        let status = resp.status();
+        let body: Value = resp
+            .json()
+            .await
+            .map_err(|e| DispatchError::Transport(format!("decode {url}: {e}")))?;
+        if !status.is_success() {
+            return Err(DispatchError::Transport(format!(
+                "POST {url} returned {status}: {body}"
+            )));
+        }
+        Ok(body)
     }
 
     async fn get(&self, path: &str) -> Result<Value, DispatchError> {
@@ -552,6 +594,19 @@ pub fn tool_descriptors() -> Value {
             }
         },
         {
+            "name": "ingest_scip",
+            "description": "Ingest a SCIP (Scalable and Precise Index for Code) protobuf index for a given index_id, enriching the knowledge graph with fully-resolved symbols and cross-file relationships. The SCIP bytes must be base64-encoded.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["scip_base64"],
+                "properties": {
+                    "index":        { "type": "string" },
+                    "index_id":     { "type": "string" },
+                    "scip_base64":  { "type": "string", "description": "Base64-encoded SCIP Index protobuf payload" }
+                }
+            }
+        },
+        {
             "name": "list_entities",
             "description": "List symbol-level entities (functions, classes, ...) for an index",
             "inputSchema": {
@@ -601,6 +656,7 @@ mod tests {
             "upsert_fact",
             "delete_fact",
             "analyzer_health",
+            "ingest_scip",
         ] {
             assert!(
                 names.contains(&required),

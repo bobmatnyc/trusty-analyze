@@ -23,3 +23,5 @@ reqwest = { workspace = true }
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+scip = "0.7"
+protobuf = "3"
