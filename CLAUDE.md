@@ -380,6 +380,13 @@ POST /facts
 
 DELETE /facts/:id
      → 204 No Content
+
+POST /indexes/:id/scip
+     body: SCIP protobuf (application/octet-stream)
+     → { symbols_ingested: N }
+
+GET  /indexes/:id/clusters?k=N&method=bow|neural
+     → Vec<ConceptCluster> (label, chunk_ids, centroid_terms)
 ```
 
 ---
@@ -397,6 +404,8 @@ Parity rule: every HTTP endpoint has an MCP tool equivalent.
 | `list_facts` | `GET /facts` |
 | `upsert_fact` | `POST /facts` |
 | `delete_fact` | `DELETE /facts/:id` |
+| `ingest_scip` | `POST /indexes/:id/scip` |
+| `cluster_concepts` | `GET /indexes/:id/clusters` |
 
 ---
 
@@ -492,25 +501,30 @@ RUST_LOG=debug                             # enable debug tracing
 
 ## Project Status
 
-**Phase**: Initial scaffolding. Workspace compiles. trusty-common types extracted.
-Analysis engine skeletons present in trusty-analyzer-core. HTTP service and MCP
-server crates scaffolded but not yet wired.
+**Phase**: Phase 1 + Phase 2 complete. Full static analysis pipeline, HTTP API,
+MCP server, SCIP ingest, neural/BoW concept clustering, and language-specific
+tree-sitter adapters are all functional.
 
 **Working:**
-- Workspace builds (`cargo check --workspace` passes)
+- Workspace builds and all 107 tests pass (`cargo test --workspace`)
 - trusty-common type definitions (chunk, complexity, blame, entity, facts)
-- trusty-analyzer-core skeletons: `complexity.rs`, `blame.rs`, `quality.rs`,
-  `facts.rs`, `client.rs`
-- Workspace Cargo.toml with shared dependency versions
+- trusty-analyzer-core fully wired: `client.rs`, `complexity.rs`, `blame.rs`,
+  `quality.rs`, `facts.rs`
+- axum HTTP sidecar (`trusty-analyzer-service`) — 8 endpoints live on port 7879
+- MCP stdio server (`trusty-analyzer-mcp`) — 9 tools (HTTP parity maintained)
+- CLI subcommands: `serve`, `analyze`, `facts list/upsert`, `health`
+- Daemon PID lockfile (fs4), graceful shutdown, `--search-url` flag
+- `LanguageAnalyzer` trait + tree-sitter adapters for Python, Java, Go (complete);
+  Rust / TypeScript / C / C++ scaffolded
+- CALLS edges from Rust adapter + cross-chunk entity linker (`#47` complete)
+- k-means concept clustering (BoW / neural) + `/indexes/:id/clusters` endpoint
+- SCIP protobuf ingest → knowledge graph (`#47` complete)
+- Integration self-analysis suite
 
-**Next:**
-1. Implement `client.rs` — reqwest calls to `GET /indexes/:id/chunks`
-2. Implement `complexity.rs` — tree-sitter AST walk for cyclomatic/cognitive metrics
-3. Implement `blame.rs` — `git log --follow` parser + temporal decay scoring
-4. Implement `quality.rs` — grade aggregation (A–F) over ComplexityMetrics
-5. Implement `facts.rs` — FactStore backed by redb
-6. Wire axum router in `trusty-analyzer-service` (`/health`, `/indexes/:id/*`, `/facts`)
-7. Wire MCP stdio dispatch in `trusty-analyzer-mcp`
-8. Wire CLI subcommands in `src/main.rs`
-9. Daemon: PID lockfile, graceful shutdown, `--search-url` flag
-10. CI workflow + integration test (requires trusty-search running)
+**Remaining / next steps:**
+- Phase 2 adapters: complete Rust, TypeScript, C, C++ tree-sitter adapters
+- Phase 3: Dockerized runtime execution (sandboxed profiler jobs)
+- Phase 4: Runtime-to-graph mapping (normalize profiler output → graph nodes)
+- Phase 5: Advanced unified scoring (text + embed + graph + runtime layers)
+- CI workflow + integration test gate (requires trusty-search running)
+- `cargo install` smoke test
