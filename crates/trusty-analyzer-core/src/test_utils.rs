@@ -105,10 +105,7 @@ pub(crate) fn chunks_from_dir(dir: &Path, ext: &str) -> anyhow::Result<Vec<CodeC
                 }
                 stack.push(path);
             } else if file_type.is_file() {
-                let matches = path
-                    .to_str()
-                    .map(|s| s.ends_with(ext))
-                    .unwrap_or(false);
+                let matches = path.to_str().map(|s| s.ends_with(ext)).unwrap_or(false);
                 if matches {
                     let chunks = chunks_from_file(&path)?;
                     out.extend(chunks);
