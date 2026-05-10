@@ -1,0 +1,17 @@
+[package]
+name = "trusty-analyzer-mcp"
+version = "0.1.0"
+edition = "2021"
+description = "MCP stdio server for trusty-analyzer tools"
+license = "MIT"
+
+[dependencies]
+trusty-common = { path = "../trusty-common" }
+trusty-analyzer-core = { path = "../trusty-analyzer-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+async-trait = { workspace = true }

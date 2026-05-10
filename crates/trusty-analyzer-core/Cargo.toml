@@ -1,0 +1,21 @@
+[package]
+name = "trusty-analyzer-core"
+version = "0.1.0"
+edition = "2021"
+description = "Code analysis primitives: complexity, smells, blame, facts, concept clustering"
+license = "MIT"
+
+[dependencies]
+trusty-common = { path = "../trusty-common" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+redb = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

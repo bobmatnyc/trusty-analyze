@@ -1,0 +1,6 @@
+/target
+**/target
+*.redb
+*.redb-*
+.DS_Store
+.claude-mpm/

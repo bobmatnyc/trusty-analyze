@@ -1,0 +1,51 @@
+[workspace]
+members = [
+    "crates/trusty-common",
+    "crates/trusty-analyzer-core",
+    "crates/trusty-analyzer-service",
+    "crates/trusty-analyzer-mcp",
+    ".",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+clap = { version = "4", features = ["derive", "env"] }
+redb = "2.6"
+dashmap = "5"
+
+[package]
+name = "trusty-analyzer"
+version = "0.1.0"
+edition = "2021"
+description = "Sidecar code-analysis daemon for trusty-search: complexity, smells, quality, facts"
+license = "MIT"
+
+[[bin]]
+name = "trusty-analyzer"
+path = "src/main.rs"
+
+[dependencies]
+trusty-common = { path = "crates/trusty-common" }
+trusty-analyzer-core = { path = "crates/trusty-analyzer-core" }
+trusty-analyzer-service = { path = "crates/trusty-analyzer-service" }
+trusty-analyzer-mcp = { path = "crates/trusty-analyzer-mcp" }
+tokio = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
