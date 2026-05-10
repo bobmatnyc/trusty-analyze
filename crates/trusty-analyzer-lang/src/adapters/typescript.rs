@@ -157,10 +157,50 @@ fn walk_ts_like(node: Node, src: &[u8], chunk: &CodeChunk, language: &str, graph
                     graph.nodes.push(n);
                     graph.edges.push(KgEdge {
                         from: file_id.to_string(),
-                        to: id,
+                        to: id.clone(),
                         kind: KgEdgeKind::Contains,
                         weight: 1.0,
                     });
+                    if let Some(body) = node.child_by_field_name("body") {
+                        for edge in extract_calls(body, src, &id, &chunk.file, language) {
+                            graph.edges.push(edge);
+                        }
+                    }
+                }
+            }
+            // Arrow function or function expression assigned to a variable:
+            //   const foo = () => { ... }
+            //   let bar = function () { ... }
+            "lexical_declaration" | "variable_declaration" => {
+                let mut cursor = node.walk();
+                for decl in node.children(&mut cursor) {
+                    if decl.kind() != "variable_declarator" {
+                        continue;
+                    }
+                    let name_node = decl.child_by_field_name("name");
+                    let value_node = decl.child_by_field_name("value");
+                    if let (Some(nm), Some(val)) = (name_node, value_node) {
+                        if matches!(val.kind(), "arrow_function" | "function" | "function_expression")
+                            && nm.kind() == "identifier"
+                        {
+                            let name = node_text(nm, src);
+                            let n =
+                                make_node(KgNodeKind::Function, &name, chunk, decl, language);
+                            let id = n.id.clone();
+                            graph.nodes.push(n);
+                            graph.edges.push(KgEdge {
+                                from: file_id.to_string(),
+                                to: id.clone(),
+                                kind: KgEdgeKind::Contains,
+                                weight: 1.0,
+                            });
+                            if let Some(body) = val.child_by_field_name("body") {
+                                for edge in extract_calls(body, src, &id, &chunk.file, language) {
+                                    graph.edges.push(edge);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             "method_definition" => {
@@ -170,10 +210,15 @@ fn walk_ts_like(node: Node, src: &[u8], chunk: &CodeChunk, language: &str, graph
                     graph.nodes.push(n);
                     graph.edges.push(KgEdge {
                         from: file_id.to_string(),
-                        to: id,
+                        to: id.clone(),
                         kind: KgEdgeKind::Contains,
                         weight: 1.0,
                     });
+                    if let Some(body) = node.child_by_field_name("body") {
+                        for edge in extract_calls(body, src, &id, &chunk.file, language) {
+                            graph.edges.push(edge);
+                        }
+                    }
                 }
             }
             "class_declaration" => {
@@ -283,24 +328,6 @@ fn walk_ts_like(node: Node, src: &[u8], chunk: &CodeChunk, language: &str, graph
                     });
                 }
             }
-            "call_expression" => {
-                // Try to extract the callee identifier.
-                if let Some(fun) = node.child_by_field_name("function") {
-                    let name = node_text(fun, src);
-                    if !name.is_empty() {
-                        let n = make_node(KgNodeKind::CallExpression, &name, chunk, node, language);
-                        let id = n.id.clone();
-                        let to_id = format!("{language}:Function:{}:{name}", chunk.file);
-                        graph.nodes.push(n);
-                        graph.edges.push(KgEdge {
-                            from: id,
-                            to: to_id,
-                            kind: KgEdgeKind::Calls,
-                            weight: 1.0,
-                        });
-                    }
-                }
-            }
             _ => {}
         }
 
@@ -311,6 +338,97 @@ fn walk_ts_like(node: Node, src: &[u8], chunk: &CodeChunk, language: &str, graph
     }
 
     recurse(node, src, chunk, language, graph, &file_id);
+}
+
+/// Extract `call_expression` nodes from a function/method body and produce
+/// deduplicated `Calls` edges keyed by callee name.
+///
+/// Why: A function's outgoing call graph is one of the most useful pieces of
+/// static analysis we can derive cheaply and is required for graph traversal
+/// queries ("what calls auth?"). Without scoped extraction, every call site is
+/// emitted as an orphan edge with no caller, defeating the purpose.
+///
+/// What: Walks the AST subtree rooted at `body`, collects every direct
+/// `call_expression` (skipping nested function/method/arrow/class bodies so
+/// each function only emits its own direct calls), resolves the callee name
+/// from the `function` field, counts repeats, and returns one `KgEdge` per
+/// unique callee with `weight = call_count as f32`.
+///
+/// Test: `ts_adapter_extracts_call_edges` and
+/// `ts_adapter_deduplicates_repeated_calls` cover the happy paths.
+fn extract_calls(
+    body: Node,
+    src: &[u8],
+    caller_id: &str,
+    file: &str,
+    language: &str,
+) -> Vec<KgEdge> {
+    use std::collections::HashMap;
+
+    let mut counts: HashMap<String, u32> = HashMap::new();
+
+    fn visit(node: Node, src: &[u8], counts: &mut HashMap<String, u32>) {
+        // Stop at nested function-like / class bodies so each function only
+        // attributes its own direct calls.
+        match node.kind() {
+            "function_declaration"
+            | "function"
+            | "function_expression"
+            | "arrow_function"
+            | "method_definition"
+            | "class_declaration"
+            | "class" => {
+                return;
+            }
+            "call_expression" => {
+                if let Some(callee) = callee_name(node, src) {
+                    *counts.entry(callee).or_insert(0) += 1;
+                }
+                // Still recurse so nested calls inside arguments are counted
+                // (e.g. `foo(bar())` records both foo and bar).
+            }
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            visit(child, src, counts);
+        }
+    }
+
+    visit(body, src, &mut counts);
+
+    counts
+        .into_iter()
+        .map(|(callee, count)| KgEdge {
+            from: caller_id.to_string(),
+            to: format!("{language}:Function:{file}:{callee}"),
+            kind: KgEdgeKind::Calls,
+            weight: count as f32,
+        })
+        .collect()
+}
+
+/// Extract a best-effort callee name from a JS/TS `call_expression` node.
+///
+/// Why: Cross-file resolution is out of scope for the adapter (the linker
+/// merges by qualified_name), so we only need a stable string handle for the
+/// callee — bare identifier or member-expression property name.
+///
+/// What: Inspects the `function` field. Returns the bare text for
+/// `identifier`, the property name for `member_expression`
+/// (`a.b.c()` → `c`), or `None` for unsupported forms (e.g. dynamic
+/// `obj[expr]()` calls).
+///
+/// Test: Exercised indirectly by the `extract_calls` tests.
+fn callee_name(call: Node, src: &[u8]) -> Option<String> {
+    let fun = call.child_by_field_name("function")?;
+    match fun.kind() {
+        "identifier" => Some(node_text(fun, src)),
+        "member_expression" => fun
+            .child_by_field_name("property")
+            .map(|p| node_text(p, src)),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -382,5 +500,71 @@ mod tests {
         assert!(a.supports("App.tsx"));
         assert!(a.supports("foo.ts"));
         assert!(!a.supports("foo.js"));
+    }
+
+    #[test]
+    fn ts_adapter_extracts_arrow_function_assigned_to_variable() {
+        let a = TypeScriptAnalyzer::new();
+        let c = make_chunk("const greet = (n: string) => `hi ${n}`;\n", "f.ts");
+        let r = a.analyze_chunks(&[c]);
+        let funcs: Vec<&KgNode> = r
+            .graph
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.kind, KgNodeKind::Function) && n.name == "greet")
+            .collect();
+        assert_eq!(funcs.len(), 1, "graph: {:?}", r.graph);
+        assert_eq!(funcs[0].language, "typescript");
+    }
+
+    #[test]
+    fn ts_adapter_extracts_call_edges() {
+        let src = "function caller() {\n    helper();\n    obj.method();\n}\nfunction helper() {}\n";
+        let c = make_chunk(src, "test.ts");
+        let r = TypeScriptAnalyzer::new().analyze_chunks(&[c]);
+        let calls: Vec<_> = r
+            .graph
+            .edges
+            .iter()
+            .filter(|e| matches!(e.kind, KgEdgeKind::Calls))
+            .collect();
+        assert!(
+            !calls.is_empty(),
+            "expected at least one Calls edge, got none"
+        );
+        let has_helper = calls.iter().any(|e| e.to.contains("helper"));
+        let has_method = calls.iter().any(|e| e.to.contains("method"));
+        assert!(has_helper, "expected edge to 'helper', got {calls:?}");
+        assert!(has_method, "expected edge to 'method', got {calls:?}");
+        // Caller must be scoped to the function, not the file.
+        assert!(
+            calls
+                .iter()
+                .all(|e| e.from.contains(":Function:") || e.from.contains(":Method:")),
+            "Calls edges should originate from a function/method node, got {calls:?}"
+        );
+    }
+
+    #[test]
+    fn ts_adapter_deduplicates_repeated_calls() {
+        let src = "function foo() {\n    bar();\n    bar();\n    bar();\n}\nfunction bar() {}\n";
+        let c = make_chunk(src, "test.ts");
+        let r = TypeScriptAnalyzer::new().analyze_chunks(&[c]);
+        let bar_edges: Vec<_> = r
+            .graph
+            .edges
+            .iter()
+            .filter(|e| matches!(e.kind, KgEdgeKind::Calls) && e.to.contains("bar"))
+            .collect();
+        assert_eq!(
+            bar_edges.len(),
+            1,
+            "repeated calls should be deduplicated, got {bar_edges:?}"
+        );
+        assert!(
+            (bar_edges[0].weight - 3.0).abs() < f32::EPSILON,
+            "weight should reflect call count=3, got {}",
+            bar_edges[0].weight
+        );
     }
 }
