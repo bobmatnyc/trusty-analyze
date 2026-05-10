@@ -317,8 +317,12 @@ impl AnalyzerMcpServer {
                     .and_then(Value::as_str)
                     .unwrap_or("default");
                 let k = args.get("k").and_then(Value::as_u64).unwrap_or(8);
-                self.get(&format!("/indexes/{index_id}/clusters?k={k}"))
-                    .await
+                let method = args.get("method").and_then(Value::as_str);
+                let path = match method {
+                    Some(m) => format!("/indexes/{index_id}/clusters?k={k}&method={m}"),
+                    None => format!("/indexes/{index_id}/clusters?k={k}"),
+                };
+                self.get(&path).await
             }
             "analyzer_health" => self.get("/health").await,
             _ => Err(DispatchError::UnknownTool),
@@ -536,13 +540,14 @@ pub fn tool_descriptors() -> Value {
         },
         {
             "name": "cluster_concepts",
-            "description": "Group chunks into concept clusters using k-means over bag-of-words embeddings",
+            "description": "Group chunks into concept clusters using k-means over embeddings (BOW or neural)",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "index":    { "type": "string" },
                     "index_id": { "type": "string" },
-                    "k":        { "type": "number" }
+                    "k":        { "type": "number" },
+                    "method":   { "type": "string", "description": "Embedding method: 'bow' (default, fast) or 'neural' (semantic, requires fastembed model)" }
                 }
             }
         },

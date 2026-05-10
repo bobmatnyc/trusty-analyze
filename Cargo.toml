@@ -3,6 +3,7 @@ members = [
     "crates/trusty-common",
     "crates/trusty-analyzer-core",
     "crates/trusty-analyzer-lang",
+    "crates/trusty-embedder",
     "crates/trusty-analyzer-service",
     "crates/trusty-analyzer-mcp",
     ".",
@@ -42,6 +43,7 @@ trusty-common = { path = "crates/trusty-common" }
 trusty-analyzer-core = { path = "crates/trusty-analyzer-core" }
 trusty-analyzer-service = { path = "crates/trusty-analyzer-service" }
 trusty-analyzer-mcp = { path = "crates/trusty-analyzer-mcp" }
+trusty-embedder = { path = "crates/trusty-embedder" }
 tokio = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }

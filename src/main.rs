@@ -7,12 +7,14 @@
 //! - `health`       probe both daemons
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use trusty_analyzer_core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
 use trusty_analyzer_mcp::AnalyzerMcpServer;
 use trusty_analyzer_service::{serve, AnalyzerAppState, DEFAULT_PORT};
+use trusty_embedder::{BowEmbedder, Embedder, NeuralEmbedder};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -52,6 +54,15 @@ enum Cmd {
         /// as a subprocess by an MCP client.
         #[arg(long)]
         mcp: bool,
+        /// Path to the fastembed model cache. If the model is not present
+        /// here, the neural embedder fails to load and the daemon falls
+        /// back to BOW clustering.
+        #[arg(
+            long,
+            default_value = ".fastembed_cache",
+            env = "TRUSTY_FASTEMBED_CACHE"
+        )]
+        fastembed_cache: PathBuf,
     },
     /// One-shot complexity report for a registered index.
     Analyze {
@@ -110,7 +121,11 @@ async fn main() -> Result<()> {
     let search = TrustySearchClient::new(&cli.search_url);
 
     match cli.cmd {
-        Cmd::Serve { port, mcp } => {
+        Cmd::Serve {
+            port,
+            mcp,
+            fastembed_cache,
+        } => {
             // Hard dependency: refuse to start if trusty-search is unreachable.
             // Why: there is no standalone/offline mode — every analysis operation
             // fetches chunk corpora from the search daemon at runtime.
@@ -127,7 +142,30 @@ async fn main() -> Result<()> {
 
             let facts = FactStore::open(&cli.facts_path)
                 .with_context(|| format!("open facts store at {}", cli.facts_path.display()))?;
-            let state = AnalyzerAppState::new(search, facts);
+
+            // Try to load the neural embedder. Failure is non-fatal: we fall
+            // back to BOW so the daemon still serves clustering requests.
+            // Why: keeping the daemon resilient when the ONNX model is
+            // missing (CI, fresh machines, offline) is more valuable than
+            // hard-failing on startup.
+            let embedder: Arc<dyn Embedder> =
+                match NeuralEmbedder::new(Some(&fastembed_cache)) {
+                    Ok(e) => {
+                        tracing::info!(
+                            "neural embedder loaded from {}",
+                            fastembed_cache.display()
+                        );
+                        Arc::new(e)
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "neural embedder failed to load from {} ({e:#}); using BOW",
+                            fastembed_cache.display()
+                        );
+                        Arc::new(BowEmbedder::default())
+                    }
+                };
+            let state = AnalyzerAppState::new(search, facts).with_embedder(embedder);
 
             if mcp {
                 // Run both: HTTP daemon in a task, MCP stdio in the foreground.

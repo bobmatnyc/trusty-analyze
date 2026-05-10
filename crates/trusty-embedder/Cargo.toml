@@ -1,0 +1,13 @@
+[package]
+name = "trusty-embedder"
+version = "0.1.0"
+edition = "2021"
+description = "Embedding backends for trusty-analyzer: fastembed neural + BOW fallback"
+license = "MIT"
+
+[dependencies]
+trusty-analyzer-core = { path = "../trusty-analyzer-core" }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+fastembed = { version = "5", default-features = false, features = ["hf-hub-rustls-tls", "ort-download-binaries"] }

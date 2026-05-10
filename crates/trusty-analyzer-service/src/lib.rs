@@ -37,6 +37,7 @@ use trusty_analyzer_core::{
     ClusterResult, FactStore, IndexSummary, TrustySearchClient,
 };
 use trusty_common::{KgGraph, KgNode};
+use trusty_embedder::{BowEmbedder, Embedder, EmbedderKind};
 
 /// Default port the analyzer daemon binds to. Picked to sit next to
 /// trusty-search's 7878.
@@ -48,18 +49,26 @@ pub struct AnalyzerAppState {
     pub search: TrustySearchClient,
     pub facts: FactStore,
     pub registry: Arc<AnalyzerRegistry>,
+    /// Neural / BOW embedder used by `/indexes/:id/clusters` when the request
+    /// asks for `method=neural`. Falls back to a fresh `BowEmbedder` when the
+    /// request asks for `method=bow` (the default).
+    pub embedder: Arc<dyn Embedder>,
 }
 
 impl AnalyzerAppState {
+    /// Construct with the default registry and a BOW embedder. Use this when
+    /// neural embeddings aren't required (tests, BOW-only deployments).
     pub fn new(search: TrustySearchClient, facts: FactStore) -> Self {
         Self {
             search,
             facts,
             registry: Arc::new(AnalyzerRegistry::default_registry()),
+            embedder: Arc::new(BowEmbedder::default()),
         }
     }
 
     /// Construct with an explicit registry (useful for tests and plug-ins).
+    /// Embedder defaults to BOW.
     pub fn with_registry(
         search: TrustySearchClient,
         facts: FactStore,
@@ -69,7 +78,16 @@ impl AnalyzerAppState {
             search,
             facts,
             registry,
+            embedder: Arc::new(BowEmbedder::default()),
         }
+    }
+
+    /// Replace the embedder on an existing state. Useful when the binary
+    /// builds state first and then tries to load fastembed, falling back
+    /// silently when the model isn't available.
+    pub fn with_embedder(mut self, embedder: Arc<dyn Embedder>) -> Self {
+        self.embedder = embedder;
+        self
     }
 }
 
@@ -273,10 +291,10 @@ async fn entities_for_index(
 pub struct ClusterQueryParams {
     /// Number of clusters to compute. Defaults to 8, clamped to [1, 50].
     pub k: Option<usize>,
-    /// Embedding method. Reserved for future neural backends; only "bow"
-    /// is implemented today and used regardless of this value.
+    /// Embedding method: `"bow"` (default, deterministic 256-dim) or
+    /// `"neural"` (fastembed all-MiniLM-L6-v2, 384-dim).
     #[serde(default)]
-    pub method: Option<String>,
+    pub method: Option<EmbedderKind>,
 }
 
 #[derive(Serialize)]
@@ -291,6 +309,10 @@ pub struct ClusterResponseItem {
 #[derive(Serialize)]
 pub struct ClusterResponse {
     pub k: usize,
+    /// Which embedder produced the vectors (`"bow"` or `"neural"`).
+    pub method: String,
+    /// Dimension of the embedding vectors used.
+    pub dim: usize,
     pub iterations: usize,
     pub chunk_count: usize,
     pub clusters: Vec<ClusterResponseItem>,
@@ -323,23 +345,54 @@ async fn clusters_for_index(
 ) -> Result<Json<ClusterResponse>, StatusCode> {
     const BOW_DIM: usize = 256;
     let k = params.k.unwrap_or(8).clamp(1, 50);
+    let method = params.method.clone().unwrap_or_default();
     let chunks = fetch_chunks(&state, &id).await?;
     if chunks.is_empty() {
         return Ok(Json(ClusterResponse {
             k,
+            method: method.as_str().to_string(),
+            dim: 0,
             iterations: 0,
             chunk_count: 0,
             clusters: Vec::new(),
         }));
     }
-    let embeddings: Vec<(String, Vec<f32>)> = chunks
-        .iter()
-        .map(|c| (c.id.clone(), bow_embedding(&c.content, BOW_DIM)))
-        .collect();
+
+    // Resolve embedder. For neural, defer to the shared state embedder (which
+    // may itself be BOW if fastembed failed to load at startup). For BOW,
+    // construct a fresh stateless BowEmbedder so we never go through fastembed
+    // when the user explicitly asked for BOW.
+    let neural_embedder: Arc<dyn Embedder> = state.embedder.clone();
+    let bow_embedder = BowEmbedder::with_dim(BOW_DIM);
+    let (chosen, effective_kind): (&dyn Embedder, EmbedderKind) = match method {
+        EmbedderKind::Neural => (neural_embedder.as_ref(), neural_embedder.kind()),
+        EmbedderKind::Bow => (&bow_embedder, EmbedderKind::Bow),
+    };
+
+    let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
+    let (vecs, effective_kind, dim) = match chosen.embed_batch(&texts) {
+        Ok(v) => (v, effective_kind, chosen.dim()),
+        Err(e) => {
+            tracing::warn!(
+                "embedder ({:?}) failed ({e:#}); falling back to BOW",
+                effective_kind
+            );
+            let fallback: Vec<Vec<f32>> = texts
+                .iter()
+                .map(|t| bow_embedding(t, BOW_DIM))
+                .collect();
+            (fallback, EmbedderKind::Bow, BOW_DIM)
+        }
+    };
+
+    let embeddings: Vec<(String, Vec<f32>)> =
+        chunks.iter().zip(vecs).map(|(c, v)| (c.id.clone(), v)).collect();
     let result = run_cluster(&embeddings, k, 100, 42);
     let iterations = result.iterations;
     Ok(Json(ClusterResponse {
         k,
+        method: effective_kind.as_str().to_string(),
+        dim,
         iterations,
         chunk_count: chunks.len(),
         clusters: cluster_items_from(result),
