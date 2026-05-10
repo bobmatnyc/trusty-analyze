@@ -16,7 +16,7 @@ use crate::blame::ChunkBlame;
 use crate::complexity::ComplexityMetrics;
 
 /// One chunk of code, anchored to a file + line range.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CodeChunk {
     /// Collision-safe id: `{path}:{start}:{end}`.
     pub id: String,

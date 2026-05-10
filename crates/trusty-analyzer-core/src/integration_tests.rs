@@ -88,8 +88,7 @@ fn self_analysis_complexity_is_accurate() {
         "expected >=3 chunks with branching logic, got {branchy}"
     );
 
-    let avg_cyclo =
-        metrics.iter().map(|m| m.cyclomatic as f64).sum::<f64>() / metrics.len() as f64;
+    let avg_cyclo = metrics.iter().map(|m| m.cyclomatic as f64).sum::<f64>() / metrics.len() as f64;
     assert!(
         avg_cyclo < 11.0,
         "average cyclomatic {avg_cyclo:.1} is too high (expected < 11)"
@@ -142,9 +141,7 @@ fn self_analysis_quality_aggregate() {
 
 #[test]
 fn self_analysis_full_workspace() {
-    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..");
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
     let crates_dir = workspace_root.join("crates");
 
     let chunks = chunks_from_dir(&crates_dir, ".rs").expect("read workspace");
@@ -197,5 +194,15 @@ fn self_analysis_full_workspace() {
     assert!(
         fn_nodes >= 10,
         "expected >=10 function nodes, got {fn_nodes}"
+    );
+
+    // After linking, duplicate fn nodes introduced by overlapping chunk
+    // windows are collapsed to canonical representatives, so the number of
+    // surviving fn nodes must be strictly less than the number of chunks
+    // analyzed (which contained many redundant fn definitions).
+    assert!(
+        fn_nodes < result.analyzed_chunks,
+        "after linking, fn_nodes ({fn_nodes}) should be < analyzed_chunks ({})",
+        result.analyzed_chunks
     );
 }

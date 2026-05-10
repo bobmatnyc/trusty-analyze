@@ -103,6 +103,10 @@ impl AnalyzerRegistry {
             merged.errors.extend(res.errors);
             merged.graph.merge(res.graph);
         }
+        // Cross-chunk linking: collapse duplicate symbols introduced by
+        // overlapping chunk windows into single canonical nodes and rewrite
+        // edges to use canonical ids.
+        merged.graph = crate::linker::link(merged.graph);
         merged
     }
 }
