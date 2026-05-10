@@ -23,6 +23,8 @@ pub use tree_sitter;
 pub use adapters::javascript::JavaScriptAnalyzer;
 pub use adapters::rust::RustAnalyzer;
 pub use adapters::typescript::TypeScriptAnalyzer;
+pub use adapters::php::PhpAnalyzer;
+pub use adapters::ruby::RubyAnalyzer;
 pub use adapters::{go::GoAnalyzer, java::JavaAnalyzer, python::PythonAnalyzer};
 pub use detection::{DetectionResult, LanguageDetector};
 pub use lang::{LanguageAnalyzer, StaticAnalysisResult};
