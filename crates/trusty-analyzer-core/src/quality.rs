@@ -73,27 +73,15 @@ pub fn aggregate_quality(chunks: &[CodeChunk]) -> QualityReport {
 }
 
 fn cyclomatic_of(c: &CodeChunk) -> u32 {
-    if let Some(m) = &c.complexity {
-        m.cyclomatic
-    } else {
-        compute_complexity(&c.content).cyclomatic
-    }
+    compute_complexity(&c.content).cyclomatic
 }
 
 fn grade_of(c: &CodeChunk) -> ComplexityGrade {
-    if let Some(m) = &c.complexity {
-        m.grade
-    } else {
-        compute_complexity(&c.content).grade
-    }
+    compute_complexity(&c.content).grade
 }
 
 fn smells_of(c: &CodeChunk) -> Vec<trusty_analyzer_types::complexity::CodeSmell> {
-    if let Some(m) = &c.complexity {
-        m.smells.clone()
-    } else {
-        crate::complexity::detect_smells(&c.content)
-    }
+    crate::complexity::detect_smells(&c.content)
 }
 
 #[cfg(test)]
@@ -111,8 +99,6 @@ mod tests {
             score: 0.0,
             compact_snippet: None,
             match_reason: "test".into(),
-            complexity: None,
-            blame: None,
         }
     }
 

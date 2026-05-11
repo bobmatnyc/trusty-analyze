@@ -281,7 +281,15 @@ Key types:
 
 ```rust
 // crates/trusty-common/src/chunk.rs
-pub struct CodeChunk { ... }          // canonical search result + analysis carrier
+pub struct CodeChunk { ... }          // canonical search result. Carries id, file,
+                                      // line range, content, function_name, score,
+                                      // compact_snippet, match_reason. Does NOT
+                                      // carry complexity or blame — trusty-analyzer
+                                      // computes those independently via
+                                      // `compute_complexity_for()` and the blame
+                                      // module. The carrier fields were removed in
+                                      // #71 because trusty-search never populated
+                                      // them in practice.
 
 // crates/trusty-common/src/complexity.rs
 pub struct ComplexityMetrics { ... }

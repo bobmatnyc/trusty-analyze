@@ -9,11 +9,13 @@
 //! daemon can add structural metadata (chunk_type, calls, inherits_from, …)
 //! without breaking analyzer deserialization. We only declare the fields the
 //! analyzer needs to do its job.
+//!
+//! Note: complexity and blame are NOT carried on `CodeChunk`. trusty-analyzer
+//! computes those independently via `compute_complexity_for()` and the blame
+//! module — trusty-search never populated them in practice, so removing them
+//! drops dead carrier fields.
 
 use serde::{Deserialize, Serialize};
-
-use crate::blame::ChunkBlame;
-use crate::complexity::ComplexityMetrics;
 
 /// One chunk of code, anchored to a file + line range.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -32,14 +34,6 @@ pub struct CodeChunk {
     pub compact_snippet: Option<String>,
     #[serde(default)]
     pub match_reason: String,
-
-    /// Per-chunk complexity & code-quality metrics. Defaults to an empty
-    /// struct for chunks that haven't been analyzed yet.
-    #[serde(default)]
-    pub complexity: Option<ComplexityMetrics>,
-    /// Optional git blame metadata. `None` for non-git workflows.
-    #[serde(default)]
-    pub blame: Option<ChunkBlame>,
 }
 
 #[cfg(test)]
@@ -58,8 +52,7 @@ mod tests {
         }"#;
         let c: CodeChunk = serde_json::from_str(s).unwrap();
         assert_eq!(c.id, "f:1:5");
-        assert_eq!(c.complexity, None);
-        assert_eq!(c.blame, None);
+        assert_eq!(c.content, "fn f() {}");
     }
 
     #[test]

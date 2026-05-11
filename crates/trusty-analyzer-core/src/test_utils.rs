@@ -60,8 +60,6 @@ pub(crate) fn chunks_from_file(path: &Path) -> anyhow::Result<Vec<CodeChunk>> {
             score: 0.0,
             compact_snippet: None,
             match_reason: String::new(),
-            complexity: None,
-            blame: None,
         });
         // Last window already consumed the tail; bail out.
         if end == lines.len() {

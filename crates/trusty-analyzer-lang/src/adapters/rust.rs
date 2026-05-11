@@ -404,8 +404,6 @@ mod tests {
             score: 0.0,
             compact_snippet: None,
             match_reason: String::new(),
-            complexity: None,
-            blame: None,
         }
     }
 

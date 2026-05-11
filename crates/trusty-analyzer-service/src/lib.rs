@@ -41,8 +41,8 @@ use trusty_analyzer_core::{
     facts::new_fact, quality, AnalyzerRegistry, ClusterResult, FactStore, IndexSummary,
     NerExtractor, ScipIngestSummary, TrustySearchClient,
 };
-use trusty_analyzer_types::{KgGraph, KgNode, RawEntity};
 use trusty_analyzer_embedder::{BowEmbedder, Embedder, EmbedderKind};
+use trusty_analyzer_types::{KgGraph, KgNode, RawEntity};
 
 /// Default port the analyzer daemon binds to. Picked to sit next to
 /// trusty-search's 7878.

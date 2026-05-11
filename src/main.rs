@@ -12,9 +12,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use trusty_analyzer_core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
+use trusty_analyzer_embedder::{BowEmbedder, Embedder, NeuralEmbedder};
 use trusty_analyzer_mcp::AnalyzerMcpServer;
 use trusty_analyzer_service::{serve, AnalyzerAppState, DEFAULT_PORT};
-use trusty_analyzer_embedder::{BowEmbedder, Embedder, NeuralEmbedder};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -256,7 +256,8 @@ async fn main() -> Result<()> {
             let hotspots = trusty_analyzer_core::quality::complexity_hotspots(&chunks, top_k);
             println!("\nTop {top_k} complexity hotspots:");
             for (i, c) in hotspots.iter().enumerate() {
-                let cyclo = c.complexity.as_ref().map(|m| m.cyclomatic).unwrap_or(0);
+                let cyclo =
+                    trusty_analyzer_core::complexity::compute_complexity(&c.content).cyclomatic;
                 println!(
                     "  {:>3}. cyclo={:>3} {}:{}-{} ({})",
                     i + 1,

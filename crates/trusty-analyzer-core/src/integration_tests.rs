@@ -105,12 +105,7 @@ fn self_analysis_complexity_is_accurate() {
 #[test]
 fn self_analysis_quality_aggregate() {
     let core_src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
-    let mut chunks = chunks_from_dir(&core_src, ".rs").expect("read own source");
-
-    for chunk in &mut chunks {
-        let metrics = compute_complexity_for(&chunk.content, "rust");
-        chunk.complexity = Some(metrics);
-    }
+    let chunks = chunks_from_dir(&core_src, ".rs").expect("read own source");
 
     let quality = aggregate_quality(&chunks);
 
