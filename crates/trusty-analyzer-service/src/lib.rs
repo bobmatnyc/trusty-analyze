@@ -9,12 +9,12 @@
 //! What: an axum router with a small surface:
 //! - `GET  /health`
 //! - `GET  /indexes`                            proxy to trusty-search
-//! - `GET  /indexes/:id/complexity_hotspots`    top-N by cyclomatic
-//! - `GET  /indexes/:id/smells`                 chunks with at least one smell
-//! - `GET  /indexes/:id/quality`                aggregate report
+//! - `GET  /indexes/{id}/complexity_hotspots`   top-N by cyclomatic
+//! - `GET  /indexes/{id}/smells`                chunks with at least one smell
+//! - `GET  /indexes/{id}/quality`               aggregate report
 //! - `GET  /facts`                              list / filter facts
 //! - `POST /facts`                              upsert a fact
-//! - `DELETE /facts/:id`                        delete a fact
+//! - `DELETE /facts/{id}`                       delete a fact
 //!
 //! Test: `cargo test -p trusty-analyzer-service` boots the router with a stub
 //! search client and exercises every route end-to-end.
@@ -52,13 +52,13 @@ pub struct AnalyzerAppState {
     pub search: TrustySearchClient,
     pub facts: FactStore,
     pub registry: Arc<AnalyzerRegistry>,
-    /// Neural / BOW embedder used by `/indexes/:id/clusters` when the request
+    /// Neural / BOW embedder used by `/indexes/{id}/clusters` when the request
     /// asks for `method=neural`. Falls back to a fresh `BowEmbedder` when the
     /// request asks for `method=bow` (the default).
     pub embedder: Arc<dyn Embedder>,
     /// Per-index SCIP-derived knowledge graph overlay, populated by
-    /// `POST /indexes/:id/scip`. Merged into the response of
-    /// `GET /indexes/:id/graph` so consumers see the union of tree-sitter
+    /// `POST /indexes/{id}/scip`. Merged into the response of
+    /// `GET /indexes/{id}/graph` so consumers see the union of tree-sitter
     /// extraction and any precise SCIP indexes the user has uploaded.
     pub scip_overlays: Arc<RwLock<HashMap<String, KgGraph>>>,
 }
@@ -102,20 +102,35 @@ impl AnalyzerAppState {
 }
 
 /// Build the axum router around `state`.
+///
+/// Why: Composes the analyzer's HTTP surface in one place so callers (binary,
+/// tests, embedded use) all get the same routes and middleware stack. The
+/// shared `trusty_common::server::with_standard_middleware` layer keeps CORS,
+/// tracing, and gzip behavior consistent across every trusty-* daemon.
+/// What: Wires every route handler to its path (axum 0.8 `{name}` capture
+/// syntax), binds the shared state, then applies the standard middleware
+/// stack.
+/// Test: `cargo test -p trusty-analyzer-service` drives every route through
+/// the returned router; the middleware composition is smoke-tested
+/// transitively (any layering regression breaks the suite).
 pub fn build_router(state: AnalyzerAppState) -> Router {
-    Router::new()
+    let router = Router::new()
         .route("/health", get(health))
         .route("/indexes", get(list_indexes))
-        .route("/indexes/:id/complexity_hotspots", get(complexity_hotspots))
-        .route("/indexes/:id/smells", get(smells))
-        .route("/indexes/:id/quality", get(quality_report))
-        .route("/indexes/:id/graph", get(graph_for_index))
-        .route("/indexes/:id/entities", get(entities_for_index))
-        .route("/indexes/:id/clusters", get(clusters_for_index))
-        .route("/indexes/:id/scip", post(ingest_scip))
+        .route(
+            "/indexes/{id}/complexity_hotspots",
+            get(complexity_hotspots),
+        )
+        .route("/indexes/{id}/smells", get(smells))
+        .route("/indexes/{id}/quality", get(quality_report))
+        .route("/indexes/{id}/graph", get(graph_for_index))
+        .route("/indexes/{id}/entities", get(entities_for_index))
+        .route("/indexes/{id}/clusters", get(clusters_for_index))
+        .route("/indexes/{id}/scip", post(ingest_scip))
         .route("/facts", get(list_facts).post(upsert_fact))
-        .route("/facts/:id", delete(delete_fact))
-        .with_state(Arc::new(state))
+        .route("/facts/{id}", delete(delete_fact))
+        .with_state(Arc::new(state));
+    trusty_common::server::with_standard_middleware(router)
 }
 
 /// Bind to `start_port` (or auto-pick a free port walking forward) and run
@@ -425,7 +440,7 @@ pub struct ScipIngestResponse {
 /// "approximate" to "precise" for languages with a real SCIP indexer.
 /// What: accepts a SCIP `Index` protobuf as raw bytes, converts it to a
 /// `KgGraph`, stores it as a per-index overlay, and returns ingest stats.
-/// The overlay is merged into `/indexes/:id/graph` responses.
+/// The overlay is merged into `/indexes/{id}/graph` responses.
 /// Test: `scip_ingest_round_trip` POSTs a hand-built SCIP index and verifies
 /// the resulting graph appears in the `/graph` response.
 async fn ingest_scip(
