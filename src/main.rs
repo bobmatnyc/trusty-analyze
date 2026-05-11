@@ -10,13 +10,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use trusty_analyzer::core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
 use trusty_analyzer::embedder::{BowEmbedder, Embedder, NeuralEmbedder};
 use trusty_analyzer::mcp::AnalyzerMcpServer;
 use trusty_analyzer::service::{serve, AnalyzerAppState, DEFAULT_PORT};
 
 mod commands;
+use commands::daemon as daemon_cmds;
 use commands::service::{run_service_action, ServiceAction as ServiceActionEnum};
 
 #[derive(Parser, Debug)]
@@ -102,10 +104,75 @@ enum Cmd {
     /// on success, prints a hint on failure.
     /// Test: run with the daemon down — should print the "not running" hint
     /// and exit non-zero. With the daemon up, should open the browser.
+    #[command(alias = "dash")]
     Dashboard {
         /// Port the analyzer daemon is bound to.
         #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
         port: u16,
+    },
+    /// Start the daemon in the background.
+    ///
+    /// Why: gives users a one-command path to boot the daemon without having
+    /// to wire up launchd/systemd. Spawns `trusty-analyze serve` as a detached
+    /// child process and writes its PID to `~/.trusty-analyze/daemon.pid`.
+    /// What: spawns the current exe with `serve --port <port>` and detaches
+    /// stdio. Idempotent: a live PID + reachable port is treated as success.
+    /// Test: `trusty-analyze start` followed by `trusty-analyze status` should
+    /// report RUNNING; `trusty-analyze stop` should clean up.
+    Start {
+        /// Port to listen on (default: 7879).
+        #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
+        port: u16,
+    },
+    /// Stop the running daemon.
+    ///
+    /// Why: pairs with `start` — sends SIGTERM to the PID recorded at start
+    /// time, then waits briefly for the port to close.
+    /// What: reads `~/.trusty-analyze/daemon.pid`, invokes `kill -TERM`, polls
+    /// the port for up to 5 s, and removes the PID file on success.
+    /// Test: with a running daemon → exits 0 with "stopped" message.
+    Stop {
+        /// Port the daemon is bound to.
+        #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
+        port: u16,
+    },
+    /// Show daemon status (running/down, port, version).
+    ///
+    /// Why: more detailed than `health` — focuses on the analyzer daemon
+    /// itself (PID, version) rather than the trusty-search pairing.
+    /// What: TCP-probes the configured port, reads the PID file, and queries
+    /// `/health` for a version string when the daemon answers.
+    /// Test: with the daemon down → prints DOWN and exits 0.
+    #[command(alias = "st")]
+    Status {
+        /// Port the daemon is bound to.
+        #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
+        port: u16,
+    },
+    /// Diagnose configuration and environment issues.
+    ///
+    /// Why: gives users a self-service "why isn't this working?" path with a
+    /// ✓ / ✗ summary per check.
+    /// What: verifies the daemon is reachable, the data dir is writable, and
+    /// the facts-store path can be opened. Exits non-zero on any failure.
+    /// Test: with the daemon down → ✗ for daemon, exits 1.
+    Doctor {
+        /// Port the daemon is bound to.
+        #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
+        port: u16,
+    },
+    /// Generate shell completion script.
+    ///
+    /// Why: shell completion massively improves discoverability for a CLI
+    /// with this many subcommands and flags.
+    /// What: emits a completion script for the chosen shell to stdout, using
+    /// `clap_complete`. Supports bash, zsh, fish, elvish, powershell.
+    /// Test: `trusty-analyze completions zsh > /tmp/_trusty-analyze` should
+    /// produce a non-empty zsh completion script.
+    Completions {
+        /// Shell to generate completions for.
+        #[arg(value_enum)]
+        shell: Shell,
     },
     /// Manage the trusty-analyzer background service (macOS launchd).
     ///
@@ -386,6 +453,23 @@ async fn main() -> Result<()> {
                 ServiceSubcommand::Logs => ServiceActionEnum::Logs,
             };
             run_service_action(action)
+        }
+        Cmd::Start { port } => daemon_cmds::handle_start(port),
+        Cmd::Stop { port } => daemon_cmds::handle_stop(port),
+        Cmd::Status { port } => daemon_cmds::handle_status(port).await,
+        Cmd::Doctor { port } => daemon_cmds::handle_doctor(port, &cli.facts_path).await,
+        Cmd::Completions { shell } => {
+            // Why: clap_complete renders a script for the requested shell from
+            // our derived `Cli` definition — keeps completion in sync with the
+            // real argument parser.
+            // What: build the clap `Command` via `CommandFactory`, then write
+            // the completion script to stdout.
+            // Test: `cargo run -- completions zsh | head` should print a
+            // `#compdef trusty-analyze` line.
+            let mut cmd = Cli::command();
+            let name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, name, &mut std::io::stdout());
+            Ok(())
         }
     }
 }
