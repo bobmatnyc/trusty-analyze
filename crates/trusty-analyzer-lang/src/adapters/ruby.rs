@@ -316,11 +316,11 @@ fn recurse(
             }
             return;
         }
+        "call" if is_require_call(node, src) => {
+            emit_require(node, src, chunk, graph, parent_id);
+            return;
+        }
         "call" => {
-            if is_require_call(node, src) {
-                emit_require(node, src, chunk, graph, parent_id);
-                return;
-            }
             // Fall through; only require-style top-level calls become edges
             // outside method bodies. Ordinary calls outside methods are not
             // attributed (no caller).

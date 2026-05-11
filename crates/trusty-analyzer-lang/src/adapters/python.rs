@@ -398,10 +398,8 @@ fn emit_imports(node: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph, 
                             });
                         }
                     }
-                    "wildcard_import" => {
-                        if !module.is_empty() {
-                            targets.push(format!("{module}.*"));
-                        }
+                    "wildcard_import" if !module.is_empty() => {
+                        targets.push(format!("{module}.*"));
                     }
                     _ => {}
                 }
