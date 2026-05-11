@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use trusty_analyzer_core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
-use trusty_analyzer_embedder::{BowEmbedder, Embedder, NeuralEmbedder};
-use trusty_analyzer_mcp::AnalyzerMcpServer;
-use trusty_analyzer_service::{serve, AnalyzerAppState, DEFAULT_PORT};
+use trusty_analyzer::core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
+use trusty_analyzer::embedder::{BowEmbedder, Embedder, NeuralEmbedder};
+use trusty_analyzer::mcp::AnalyzerMcpServer;
+use trusty_analyzer::service::{serve, AnalyzerAppState, DEFAULT_PORT};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -195,7 +195,7 @@ async fn main() -> Result<()> {
                 let mcp_listener = tokio::net::TcpListener::bind(("127.0.0.1", mcp_port)).await?;
                 tracing::info!("MCP HTTP/SSE server listening on port {mcp_port}");
                 tokio::spawn(async move {
-                    axum::serve(mcp_listener, trusty_analyzer_mcp::sse::router(mcp_srv))
+                    axum::serve(mcp_listener, trusty_analyzer::mcp::sse::router(mcp_srv))
                         .await
                         .ok();
                 });
@@ -210,7 +210,7 @@ async fn main() -> Result<()> {
                     }
                 });
                 let mcp_server = AnalyzerMcpServer::new(format!("http://127.0.0.1:{port_for_url}"));
-                trusty_analyzer_mcp::stdio::run(mcp_server).await?;
+                trusty_analyzer::mcp::stdio::run(mcp_server).await?;
                 http.abort();
                 Ok(())
             } else {
@@ -222,7 +222,7 @@ async fn main() -> Result<()> {
                 .get_chunks(&index_id)
                 .await
                 .with_context(|| format!("fetch chunks for {index_id}"))?;
-            let report = trusty_analyzer_core::quality::aggregate_quality(&chunks);
+            let report = trusty_analyzer::core::quality::aggregate_quality(&chunks);
             println!(
                 "Index: {} | chunks: {} | avg cyclomatic: {:.2} | %A: {:.1}% | smells: {}",
                 index_id,
@@ -253,11 +253,11 @@ async fn main() -> Result<()> {
                 println!("  {lang}: {nodes} nodes, {edges} edges");
             }
 
-            let hotspots = trusty_analyzer_core::quality::complexity_hotspots(&chunks, top_k);
+            let hotspots = trusty_analyzer::core::quality::complexity_hotspots(&chunks, top_k);
             println!("\nTop {top_k} complexity hotspots:");
             for (i, c) in hotspots.iter().enumerate() {
                 let cyclo =
-                    trusty_analyzer_core::complexity::compute_complexity(&c.content).cyclomatic;
+                    trusty_analyzer::core::complexity::compute_complexity(&c.content).cyclomatic;
                 println!(
                     "  {:>3}. cyclo={:>3} {}:{}-{} ({})",
                     i + 1,
@@ -330,7 +330,7 @@ async fn main() -> Result<()> {
         }
         Cmd::Mcp { analyzer_url } => {
             let server = AnalyzerMcpServer::new(analyzer_url);
-            trusty_analyzer_mcp::stdio::run(server).await
+            trusty_analyzer::mcp::stdio::run(server).await
         }
         Cmd::Dashboard { port } => {
             use std::net::{SocketAddr, TcpStream};

@@ -1,0 +1,40 @@
+//! Entity taxonomy and edge kinds shared between search and analyzer.
+//!
+//! Why: trusty-search-core, trusty-analyzer-core, and ingest pipelines all
+//! consume the same `EntityType` / `EdgeKind` / `RawEntity` shapes. The shared
+//! `trusty-contracts` crate owns the canonical definitions (no tree-sitter
+//! dep) and this module simply re-exports them so existing callers continue to
+//! work via `crate::types::{EntityType, EdgeKind, RawEntity}`.
+//!
+//! What: pure re-exports from `trusty_contracts`. No local definitions.
+//!
+//! Test: `entity_type_round_trips` exercises serde round-tripping through the
+//! re-exported types.
+
+pub use trusty_contracts::{fact_hash_str, EdgeKind, EntityType, RawEntity};
+
+/// redb table name constants for entity storage, re-exported from
+/// `trusty_contracts::tables`.
+pub mod tables {
+    pub use trusty_contracts::tables::*;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entity_type_round_trips() {
+        let kinds = [
+            EntityType::NamedType,
+            EntityType::ModulePath,
+            EntityType::TestRelation,
+            EntityType::ConceptCluster,
+        ];
+        for k in kinds {
+            let s = serde_json::to_string(&k).unwrap();
+            let back: EntityType = serde_json::from_str(&s).unwrap();
+            assert_eq!(k, back);
+        }
+    }
+}

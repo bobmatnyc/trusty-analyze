@@ -1,4 +1,4 @@
-# Publishes the publishable crates in the trusty-analyze workspace to crates.io.
+# Publishes the single-crate `trusty-analyzer` package to crates.io.
 #
 # Triggered by:
 #   - Push of a tag matching v* (e.g. v0.1.0)
@@ -7,20 +7,8 @@
 #
 # Cross-repo dependency:
 #   The shared `trusty-common` and `trusty-contracts` crates are published
-#   from the trusty-common repo and consumed here via crates.io. The analyzer-
-#   specific crates listed below are published from THIS repo.
-#
-# Workspace publish order (each step depends only on previously published crates):
-#   1. trusty-analyzer-types      — no intra-workspace deps
-#   2. trusty-analyzer-lang       — depends on trusty-analyzer-types
-#   3. trusty-analyzer-core       — depends on trusty-analyzer-types + trusty-analyzer-lang
-#   4. trusty-analyzer-embedder   — depends on trusty-analyzer-core
-#                                   (package name; lives in crates/trusty-embedder/.
-#                                   Renamed from `trusty-embedder` to avoid colliding
-#                                   with an unrelated crate already on crates.io.)
-#   5. trusty-analyzer-service    — depends on types/core/lang/embedder
-#   6. trusty-analyzer-mcp        — depends on types + core
-#   7. trusty-analyzer (binary)   — depends on all of the above
+#   from the trusty-common repo and consumed here via crates.io. The analyzer
+#   itself ships as a single crate published from THIS repo.
 #
 # Required repository secret:
 #   CARGO_REGISTRY_TOKEN — crates.io API token with publish scope.
@@ -47,7 +35,7 @@ env:
 
 jobs:
   publish:
-    name: Publish crates to crates.io
+    name: Publish trusty-analyzer to crates.io
     runs-on: ubuntu-latest
     env:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -72,156 +60,24 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       # ── Quality gate ──────────────────────────────────────────────────────
-      - name: Clippy (workspace, all targets)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
 
-      - name: Test (workspace)
-        run: cargo test --workspace
+      - name: Test
+        run: cargo test
 
       # ── Publish ───────────────────────────────────────────────────────────
       # --no-verify skips re-building from a clean temp dir; we already built
-      # and tested above so this is safe and saves ~5 min of CI time.
-      # Dry-run path: passes --dry-run so nothing is actually uploaded.
-
-      - name: Publish trusty-analyzer-types
+      # and tested above so this is safe and saves CI time. It also avoids
+      # tripping cargo's source-tree-modification check on the placeholder
+      # `ui/dist/index.html` that build.rs writes when the UI hasn't been built.
+      - name: Publish trusty-analyzer
         run: |
+          VERSION=$(grep '^version' Cargo.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-types --dry-run
+            cargo publish --dry-run --no-verify --allow-dirty
+          elif cargo search trusty-analyzer --limit 1 | grep -q "^trusty-analyzer = \"$VERSION\""; then
+            echo "trusty-analyzer v$VERSION already published, skipping"
           else
-            set +e
-            out=$(cargo publish -p trusty-analyzer-types --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer-types already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-types)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 60
-
-      - name: Publish trusty-analyzer-lang
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-lang --dry-run
-          else
-            set +e
-            out=$(cargo publish -p trusty-analyzer-lang --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer-lang already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-lang)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 60
-
-      - name: Publish trusty-analyzer-core
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-core --dry-run
-          else
-            set +e
-            out=$(cargo publish -p trusty-analyzer-core --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer-core already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-core)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 60
-
-      - name: Publish trusty-analyzer-embedder
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-embedder --dry-run
-          else
-            set +e
-            out=$(cargo publish -p trusty-analyzer-embedder --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer-embedder already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-embedder)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 60
-
-      - name: Publish trusty-analyzer-service
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-service --dry-run
-          else
-            set +e
-            out=$(cargo publish -p trusty-analyzer-service --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer-service already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-service)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 60
-
-      - name: Publish trusty-analyzer-mcp
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-mcp --dry-run
-          else
-            set +e
-            out=$(cargo publish -p trusty-analyzer-mcp --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer-mcp already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-mcp)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 60
-
-      - name: Publish trusty-analyzer (binary)
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer --dry-run
-          else
-            set +e
-            out=$(cargo publish -p trusty-analyzer --no-verify --allow-dirty 2>&1)
-            rc=$?
-            set -e
-            echo "$out"
-            if echo "$out" | grep -q "already exists"; then
-              echo "Crate trusty-analyzer already published, skipping"
-            elif [ $rc -ne 0 ]; then
-              exit $rc
-            fi
+            cargo publish --no-verify --allow-dirty
           fi
