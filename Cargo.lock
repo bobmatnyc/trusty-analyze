@@ -2940,7 +2940,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -2961,7 +2961,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2989,7 +2989,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer-embedder"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "fastembed",
@@ -3000,7 +3000,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer-lang"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3028,7 +3028,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3046,7 +3046,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer-service"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "trusty-analyzer-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",

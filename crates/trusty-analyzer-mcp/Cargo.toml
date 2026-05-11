@@ -12,8 +12,8 @@ keywords = ["mcp", "code-analysis", "claude", "json-rpc"]
 categories = ["development-tools"]
 
 [dependencies]
-trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.0" }
-trusty-analyzer-core = { path = "../trusty-analyzer-core", version = "0.1.0" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.1" }
+trusty-analyzer-core = { path = "../trusty-analyzer-core", version = "0.1.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

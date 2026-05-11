@@ -12,7 +12,7 @@ keywords = ["tree-sitter", "static-analysis", "code-analysis", "trusty"]
 categories = ["development-tools", "parser-implementations"]
 
 [dependencies]
-trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.0" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.1" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

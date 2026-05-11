@@ -12,13 +12,13 @@ keywords = ["code-analysis", "axum", "http", "daemon", "trusty"]
 categories = ["development-tools", "web-programming::http-server"]
 
 [dependencies]
-trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.0" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.1" }
 # Shared trusty-common (port binding, daemon addr file). Sourced via
 # the workspace dep and overridden to a local path via [patch.crates-io].
 trusty-common = { workspace = true, features = ["axum-server"] }
-trusty-analyzer-core = { path = "../trusty-analyzer-core", version = "0.1.0" }
-trusty-analyzer-lang = { path = "../trusty-analyzer-lang", version = "0.1.0" }
-trusty-analyzer-embedder = { path = "../trusty-embedder", version = "0.1.0" }
+trusty-analyzer-core = { path = "../trusty-analyzer-core", version = "0.1.1" }
+trusty-analyzer-lang = { path = "../trusty-analyzer-lang", version = "0.1.1" }
+trusty-analyzer-embedder = { path = "../trusty-embedder", version = "0.1.1" }
 axum = { workspace = true }
 tower-http = { workspace = true }
 tokio = { workspace = true }
