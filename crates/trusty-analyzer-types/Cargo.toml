@@ -1,9 +1,15 @@
 [package]
 name = "trusty-analyzer-types"
-version = "0.1.0"
-edition = "2021"
-description = "Analyzer-specific shared types (CodeChunk, KgGraph, FactRecord)"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "Analyzer-specific shared types (CodeChunk, KgGraph, FactRecord) for trusty-analyzer"
+keywords = ["code-analysis", "types", "complexity", "static-analysis"]
+categories = ["development-tools"]
 
 [dependencies]
 serde = { workspace = true }

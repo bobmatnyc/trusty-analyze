@@ -10,6 +10,15 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/bobmatnyc/trusty-analyze"
+homepage = "https://github.com/bobmatnyc/trusty-analyze"
+readme = "README.md"
+authors = ["Bob Matsuoka <bob@matsuoka.com>"]
+
 # ── Shared trusty-* crates (from the trusty-common repo) ──────────────────
 # Why: consolidates port-binding, daemon address files, OpenRouter client,
 # and (optionally) the shared axum server middleware. Local checkouts are
@@ -42,11 +51,15 @@ open = "5"
 
 # Shared trusty-* crates (published from the trusty-common repo).
 #
-# Note: this workspace also contains a *local* crate named `trusty-embedder`
-# (analyzer-specific, published from this repo). The shared embedder
-# (`trusty-embedder` from the trusty-common repo) is intentionally NOT added
-# here to avoid a name collision; if a future task needs it, expose it
-# through a renamed package alias.
+# Note: this workspace also contains a *local* crate named `trusty-embedder`.
+# A crate with the same name already exists on crates.io and is unrelated to
+# this one; rather than rename our crate (which would ripple through every
+# call site for a workspace-internal type), we keep the local name and
+# mark `trusty-embedder` as `publish = false` in its own Cargo.toml.
+# Any workspace crate that depends on `trusty-embedder` is therefore also
+# `publish = false` (currently: `trusty-analyzer-service` and the root
+# `trusty-analyzer` binary). Distribute those via GitHub Releases or
+# `cargo install --git` instead of crates.io.
 trusty-common = "0.1.2"
 trusty-contracts = "0.1"
 
@@ -58,21 +71,29 @@ trusty-contracts = { path = "../trusty-common/crates/trusty-contracts" }
 
 [package]
 name = "trusty-analyzer"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+authors.workspace = true
 description = "Sidecar code-analysis daemon for trusty-search: complexity, smells, quality, facts"
-license = "MIT"
 build = "build.rs"
+# Why: depends on `trusty-embedder` (publish = false), so this binary crate
+# cannot be uploaded to crates.io either. Distribute via GitHub Releases or
+# `cargo install --git https://github.com/bobmatnyc/trusty-analyze` instead.
+publish = false
 
 [[bin]]
 name = "trusty-analyzer"
 path = "src/main.rs"
 
 [dependencies]
-trusty-analyzer-types = { path = "crates/trusty-analyzer-types" }
-trusty-analyzer-core = { path = "crates/trusty-analyzer-core" }
+trusty-analyzer-types = { path = "crates/trusty-analyzer-types", version = "0.1.0" }
+trusty-analyzer-core = { path = "crates/trusty-analyzer-core", version = "0.1.0" }
 trusty-analyzer-service = { path = "crates/trusty-analyzer-service" }
-trusty-analyzer-mcp = { path = "crates/trusty-analyzer-mcp" }
+trusty-analyzer-mcp = { path = "crates/trusty-analyzer-mcp", version = "0.1.0" }
 trusty-embedder = { path = "crates/trusty-embedder" }
 tokio = { workspace = true }
 clap = { workspace = true }

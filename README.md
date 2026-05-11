@@ -1,8 +1,40 @@
 # trusty-analyzer
 
+[![CI](https://github.com/bobmatnyc/trusty-analyze/actions/workflows/ci.yml/badge.svg)](https://github.com/bobmatnyc/trusty-analyze/actions/workflows/ci.yml)
+[![Publish](https://github.com/bobmatnyc/trusty-analyze/actions/workflows/publish.yml/badge.svg)](https://github.com/bobmatnyc/trusty-analyze/actions/workflows/publish.yml)
+[![crates.io: trusty-analyzer-types](https://img.shields.io/crates/v/trusty-analyzer-types.svg?label=trusty-analyzer-types)](https://crates.io/crates/trusty-analyzer-types)
+[![crates.io: trusty-analyzer-core](https://img.shields.io/crates/v/trusty-analyzer-core.svg?label=trusty-analyzer-core)](https://crates.io/crates/trusty-analyzer-core)
+[![crates.io: trusty-analyzer-lang](https://img.shields.io/crates/v/trusty-analyzer-lang.svg?label=trusty-analyzer-lang)](https://crates.io/crates/trusty-analyzer-lang)
+[![crates.io: trusty-analyzer-mcp](https://img.shields.io/crates/v/trusty-analyzer-mcp.svg?label=trusty-analyzer-mcp)](https://crates.io/crates/trusty-analyzer-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Sidecar code-analysis daemon for [trusty-search](../trusty-search). Fetches chunk
 corpora from the trusty-search daemon, runs static analysis, and serves results via
 HTTP (port 7879) and MCP stdio.
+
+## Installation
+
+The `trusty-analyzer` binary is distributed via GitHub Releases and `cargo install`:
+
+```bash
+cargo install --git https://github.com/bobmatnyc/trusty-analyze trusty-analyzer
+```
+
+The library crates (`trusty-analyzer-types`, `trusty-analyzer-core`,
+`trusty-analyzer-lang`, `trusty-analyzer-mcp`) are published to crates.io and
+can be added directly:
+
+```toml
+[dependencies]
+trusty-analyzer-core = "0.1"
+```
+
+> **Note:** the workspace also contains `trusty-embedder` and
+> `trusty-analyzer-service`, which are intentionally workspace-internal
+> (`publish = false`). The name `trusty-embedder` collides with an unrelated
+> crate already on crates.io; rather than rename our internal type, the crate
+> and its dependents are not uploaded. The binary is the supported
+> distribution unit for embedded/server functionality.
 
 ## Quick Start
 

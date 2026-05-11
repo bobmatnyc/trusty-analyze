@@ -1,12 +1,18 @@
 [package]
 name = "trusty-analyzer-lang"
-version = "0.1.0"
-edition = "2021"
-description = "Language-specific static analysis adapters for trusty-analyzer"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+authors.workspace = true
+description = "Language-specific static analysis adapters for trusty-analyzer (tree-sitter based)"
+keywords = ["tree-sitter", "static-analysis", "code-analysis", "trusty"]
+categories = ["development-tools", "parser-implementations"]
 
 [dependencies]
-trusty-analyzer-types = { path = "../trusty-analyzer-types" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

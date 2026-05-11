@@ -1,4 +1,4 @@
-# Publishes all crates in the trusty-analyze workspace to crates.io.
+# Publishes the publishable crates in the trusty-analyze workspace to crates.io.
 #
 # Triggered by:
 #   - Push of a tag matching v* (e.g. v0.1.0)
@@ -6,18 +6,25 @@
 #   - Repository dispatch (type: publish) from trusty-common's publish workflow
 #
 # Cross-repo dependency:
-#   trusty-analyzer-types and trusty-embedder are analyzer-specific crates
-#   distinct from the shared `trusty-common` published from the trusty-common
-#   repo. All crates in this workspace are published from this repo.
+#   The shared `trusty-common` and `trusty-contracts` crates are published
+#   from the trusty-common repo and consumed here via crates.io. The analyzer-
+#   specific crates listed below are published from THIS repo.
 #
-# Publish order (dependency-first within workspace):
-#   1. trusty-analyzer-types   — no intra-workspace deps
-#   2. trusty-analyzer-lang    — depends on trusty-analyzer-types (local)
-#   3. trusty-analyzer-core    — depends on trusty-analyzer-types + trusty-analyzer-lang
-#   4. trusty-embedder         — depends on trusty-analyzer-core
-#   5. trusty-analyzer-service — depends on trusty-analyzer-types + trusty-analyzer-core + trusty-analyzer-lang + trusty-embedder + shared trusty-common (crates.io)
-#   6. trusty-analyzer-mcp     — depends on trusty-analyzer-types + trusty-analyzer-core
-#   7. trusty-analyzer (bin)   — depends on all crates above
+# Workspace publishability map:
+#   PUBLISHED (uploaded to crates.io):
+#     1. trusty-analyzer-types   — no intra-workspace deps
+#     2. trusty-analyzer-lang    — depends on trusty-analyzer-types
+#     3. trusty-analyzer-core    — depends on trusty-analyzer-types + trusty-analyzer-lang
+#     4. trusty-analyzer-mcp     — depends on trusty-analyzer-types + trusty-analyzer-core
+#
+#   NOT PUBLISHED (publish = false in Cargo.toml; workspace-internal):
+#     - trusty-embedder          — collides with an unrelated `trusty-embedder`
+#                                  crate already on crates.io
+#     - trusty-analyzer-service  — transitively depends on trusty-embedder
+#     - trusty-analyzer (bin)    — transitively depends on trusty-embedder
+#
+#   The binary `trusty-analyzer` is distributed via GitHub Releases and
+#   `cargo install --git https://github.com/bobmatnyc/trusty-analyze`.
 #
 # Required repository secret:
 #   CARGO_REGISTRY_TOKEN — crates.io API token with publish scope.
@@ -107,30 +114,6 @@ jobs:
         if: ${{ inputs.dry_run != true }}
         run: sleep 20
 
-      - name: Publish trusty-embedder
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-embedder --dry-run
-          else
-            cargo publish -p trusty-embedder --no-verify
-          fi
-
-      - name: Wait for index propagation (trusty-embedder)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 20
-
-      - name: Publish trusty-analyzer-service
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer-service --dry-run
-          else
-            cargo publish -p trusty-analyzer-service --no-verify
-          fi
-
-      - name: Wait for index propagation (trusty-analyzer-service)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 20
-
       - name: Publish trusty-analyzer-mcp
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
@@ -139,14 +122,5 @@ jobs:
             cargo publish -p trusty-analyzer-mcp --no-verify
           fi
 
-      - name: Wait for index propagation (trusty-analyzer-mcp)
-        if: ${{ inputs.dry_run != true }}
-        run: sleep 20
-
-      - name: Publish trusty-analyzer (binary crate)
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-analyzer --dry-run
-          else
-            cargo publish -p trusty-analyzer --no-verify
-          fi
+      # Note: trusty-embedder, trusty-analyzer-service, and the trusty-analyzer
+      # binary are intentionally NOT published. See header comment for details.

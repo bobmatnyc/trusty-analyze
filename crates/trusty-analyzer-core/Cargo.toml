@@ -1,13 +1,19 @@
 [package]
 name = "trusty-analyzer-core"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+authors.workspace = true
 description = "Code analysis primitives: complexity, smells, blame, facts, concept clustering"
-license = "MIT"
+keywords = ["code-analysis", "complexity", "smells", "static-analysis"]
+categories = ["development-tools"]
 
 [dependencies]
-trusty-analyzer-types = { path = "../trusty-analyzer-types" }
-trusty-analyzer-lang = { path = "../trusty-analyzer-lang" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types", version = "0.1.0" }
+trusty-analyzer-lang = { path = "../trusty-analyzer-lang", version = "0.1.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

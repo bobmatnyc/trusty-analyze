@@ -535,6 +535,66 @@ RUST_LOG=debug                             # enable debug tracing
 
 ---
 
+## Publishing
+
+Publishing is **fully automated via CI/CD** — never run `cargo publish` manually.
+Trigger paths:
+
+1. **Tag push**: pushing a `v*` tag (e.g. `v0.1.1`) runs
+   `.github/workflows/publish.yml` and uploads to crates.io.
+2. **Manual dispatch**: GitHub Actions UI → *Publish* → *Run workflow*
+   (with optional `dry_run`).
+3. **Cross-repo dispatch**: trusty-common's publish workflow fires a
+   `repository_dispatch` of type `publish` after `trusty-contracts` is on
+   crates.io, ensuring downstream resolution succeeds.
+
+### Workspace publishability map
+
+| Crate | Published to crates.io? | Why |
+|-------|------------------------|-----|
+| `trusty-analyzer-types` | ✅ Yes | Pure types, no internal deps |
+| `trusty-analyzer-lang`  | ✅ Yes | Tree-sitter adapters; depends on `-types` |
+| `trusty-analyzer-core`  | ✅ Yes | Analysis primitives; depends on `-types` + `-lang` |
+| `trusty-analyzer-mcp`   | ✅ Yes | MCP server; depends on `-types` + `-core` |
+| `trusty-embedder`       | ❌ No  | Name collision with an unrelated crate already on crates.io |
+| `trusty-analyzer-service` | ❌ No | Depends on `trusty-embedder` |
+| `trusty-analyzer` (bin) | ❌ No  | Depends on `trusty-embedder` |
+
+> **`trusty-embedder` collision rationale:** an unrelated crate of the same
+> name is already published. Rather than rename our crate (which would ripple
+> through every call site for an entirely workspace-internal type), the crate
+> is marked `publish = false`. Any dependent crate is therefore also
+> `publish = false`. The binary is distributed via GitHub Releases and
+> `cargo install --git https://github.com/bobmatnyc/trusty-analyze` instead.
+
+### Pre-publish validation
+
+Before tagging a release, validate that publishable crates are still
+publish-clean:
+
+```bash
+# Dry-run each publishable crate (no upload). Run in dependency order.
+cargo publish -p trusty-analyzer-types --dry-run
+cargo publish -p trusty-analyzer-lang  --dry-run
+cargo publish -p trusty-analyzer-core  --dry-run
+cargo publish -p trusty-analyzer-mcp   --dry-run
+```
+
+Note: dry-runs require dependencies to already be published on crates.io at
+the same version, otherwise the index lookup fails. For first-time publishing
+of a new crate, run the GitHub Actions workflow with `dry_run = true` so the
+local `[patch.crates-io]` overrides don't shadow the lookup.
+
+### Dependency-bump cadence
+
+`.github/dependabot.yml` opens grouped weekly PRs:
+
+- Minor/patch cargo bumps rolled into one PR per week
+- tree-sitter grammar crates grouped together (they version in lockstep)
+- GitHub Actions versions grouped weekly
+
+---
+
 ## Project Status
 
 **Phase**: Phase 1 + Phase 2 complete. Full static analysis pipeline, HTTP API,
