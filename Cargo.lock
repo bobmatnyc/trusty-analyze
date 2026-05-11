@@ -887,6 +887,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "h2"
+version = "0.4.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "171fefbc92fe4a4de27e0698d6a5b392d6a0e333506bc49133760b3bcf948733"
+dependencies = [
+ "atomic-waker",
+ "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "http",
+ "indexmap",
+ "slab",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1007,6 +1026,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-core",
+ "h2",
  "http",
  "http-body",
  "httparse",
@@ -2060,6 +2080,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-util",
+ "h2",
  "http",
  "http-body",
  "http-body-util",
@@ -2974,6 +2995,7 @@ dependencies = [
  "futures-util",
  "http-body-util",
  "include_dir",
+ "libc",
  "mime_guess",
  "ndarray 0.16.1",
  "open",
@@ -3014,11 +3036,10 @@ dependencies = [
 
 [[package]]
 name = "trusty-common"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2eff22f03d088890813d9ca0e704cb0db6601945bf05dd6ccd6d7cbd620f670"
+version = "0.3.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "colored",
  "dirs 5.0.1",
@@ -3887,7 +3908,3 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
-
-[[patch.unused]]
-name = "trusty-common"
-version = "0.3.1"
