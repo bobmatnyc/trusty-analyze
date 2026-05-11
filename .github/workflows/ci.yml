@@ -32,11 +32,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout trusty-common (sibling repo for [patch.crates-io])
+      - name: Checkout trusty-common (for [patch.crates-io])
         uses: actions/checkout@v4
         with:
           repository: bobmatnyc/trusty-common
-          path: ../trusty-common
+          path: trusty-common-ci
+
+      - name: Rewrite [patch.crates-io] paths for CI layout
+        run: sed -i 's|\.\./trusty-common/crates/|trusty-common-ci/crates/|g' Cargo.toml
 
       - name: Install Rust toolchain (${{ matrix.toolchain }})
         uses: dtolnay/rust-toolchain@master
