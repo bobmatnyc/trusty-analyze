@@ -1,16 +1,10 @@
 {
   "name": "trusty-analyzer-ui",
   "private": true,
-  "version": "0.1.0",
-  "type": "module",
+  "version": "0.2.0",
+  "description": "Vanilla JS + D3 dashboard for the trusty-analyzer daemon. No build step required — files in dist/ are served directly and embedded into the Rust binary via include_dir!.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^4.0.0",
-    "svelte": "^5.0.0",
-    "vite": "^5.4.0"
+    "build": "node -e \"console.log('trusty-analyzer-ui: vanilla dist, no build step required.')\"",
+    "dev": "node -e \"console.log('Open via the analyzer daemon at http://127.0.0.1:7879/ui/')\""
   }
 }

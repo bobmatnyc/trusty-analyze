@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>trusty-analyzer</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script>
+      // Injected/overridable defaults for daemon coordinates.
+      window.__DAEMON_PORT__ = window.__DAEMON_PORT__ || 7879;
+      window.__SEARCH_URL__ = window.__SEARCH_URL__ || 'http://127.0.0.1:7878';
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">&#x2318;</span>
+          <span class="brand-name">trusty-analyzer</span>
+        </div>
+        <div class="topbar-right">
+          <label class="index-picker">
+            <span>Index</span>
+            <select id="index-select" aria-label="Select index"></select>
+          </label>
+          <span id="health-pill" class="pill pill-unknown" title="Daemon health">...</span>
+        </div>
+      </header>
+
+      <div class="layout">
+        <aside class="sidebar">
+          <section class="card quality-card">
+            <h3>Quality</h3>
+            <div class="grade-block">
+              <div id="grade-letter" class="grade-letter grade-unknown">-</div>
+              <div class="grade-meta">
+                <div><span class="muted">Avg cyclomatic</span> <strong id="quality-avg">-</strong></div>
+                <div><span class="muted">% grade A</span> <strong id="quality-pct-a">-</strong></div>
+                <div><span class="muted">Smell count</span> <strong id="quality-smells">-</strong></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h3>Top Hotspots</h3>
+            <ol id="sidebar-hotspots" class="hotspot-list"></ol>
+          </section>
+        </aside>
+
+        <main class="content">
+          <nav class="tabs" role="tablist">
+            <button class="tab active" data-tab="complexity" role="tab">Complexity</button>
+            <button class="tab" data-tab="smells" role="tab">Smells</button>
+            <button class="tab" data-tab="refactors" role="tab">Refactors</button>
+            <button class="tab" data-tab="clusters" role="tab">Clusters</button>
+          </nav>
+
+          <section id="tab-complexity" class="tab-panel active">
+            <div class="card">
+              <div class="card-head">
+                <h2>Complexity Heatmap</h2>
+                <span class="muted small">treemap - color = grade - size = cyclomatic</span>
+              </div>
+              <div id="treemap" class="treemap"></div>
+              <div id="treemap-detail" class="treemap-detail muted small">Click a tile to see chunk details.</div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <h2>Top Hotspots</h2>
+                <span class="muted small">ranked by cyclomatic complexity</span>
+              </div>
+              <div id="hotspot-table" class="hotspot-table"></div>
+            </div>
+          </section>
+
+          <section id="tab-smells" class="tab-panel">
+            <div class="card">
+              <div class="card-head">
+                <h2>Smell Categories</h2>
+                <span class="muted small">distribution by category</span>
+              </div>
+              <div id="smells-chart" class="smells-chart"></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <h2>Detected Smells</h2>
+                <span class="muted small" id="smells-count"></span>
+              </div>
+              <div id="smells-list" class="smells-list"></div>
+            </div>
+          </section>
+
+          <section id="tab-refactors" class="tab-panel">
+            <div class="card">
+              <div class="card-head">
+                <h2>Refactor Suggestions</h2>
+                <div class="filter-row">
+                  <label>
+                    Min severity
+                    <select id="refactor-severity">
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div id="refactor-list" class="refactor-list"></div>
+            </div>
+          </section>
+
+          <section id="tab-clusters" class="tab-panel">
+            <div class="card">
+              <div class="card-head">
+                <h2>Concept Clusters</h2>
+                <span class="muted small">k-means over chunk embeddings</span>
+              </div>
+              <div id="clusters-grid" class="clusters-grid"></div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div id="error-banner" class="error-banner hidden">
+        <strong>trusty-search not reachable.</strong>
+        <span>Start it with <code>trusty-search daemon</code> on port 7878.</span>
+      </div>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
