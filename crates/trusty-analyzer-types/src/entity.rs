@@ -1,77 +1,25 @@
 //! Entity taxonomy and edge kinds shared between search and analyzer.
 //!
-//! Mirrors `trusty_search_core::entity::{EntityType, EdgeKind, RawEntity}`
-//! with variant names preserved so JSON round-trips.
+//! Why: trusty-search-core, trusty-analyzer-core, and ingest pipelines all
+//! consume the same `EntityType` / `EdgeKind` / `RawEntity` shapes. The shared
+//! `trusty-contracts` crate owns the canonical definitions (no tree-sitter
+//! dep) and this module simply re-exports them so existing callers continue to
+//! work via `trusty_analyzer_types::{EntityType, EdgeKind, RawEntity}`.
+//!
+//! What: pure re-exports from `trusty_contracts`. No local definitions.
+//!
+//! Test: `entity_type_round_trips` exercises serde round-tripping through the
+//! re-exported types.
 
-use serde::{Deserialize, Serialize};
+pub use trusty_contracts::{fact_hash_str, EdgeKind, EntityType, RawEntity};
 
-/// Taxonomy of program entities surfaced from the AST. Variant names match
-/// `trusty_search_core::entity::EntityType` so wire-format payloads decode.
-#[deprecated(
-    since = "0.0.0",
-    note = "Use KgNodeKind/KgEdgeKind from the graph module instead"
-)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum EntityType {
-    NamedType,
-    TraitBound,
-    ModulePath,
-    ErrorVariant,
-    TestRelation,
-    DocConcept,
-    Annotation,
-    LiteralString,
-    TypeAlias,
-    ConstantSymbol,
-    ExternalCrate,
-    ConceptCluster,
-    NaturalLanguagePhrase,
-}
-
-/// Edge kinds for the symbol knowledge graph. Mirrors the search side.
-#[deprecated(
-    since = "0.0.0",
-    note = "Use KgNodeKind/KgEdgeKind from the graph module instead"
-)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum EdgeKind {
-    CallsFunction,
-    CalledByFunction,
-    Implements,
-    UsesType,
-    Derives,
-    ModuleContains,
-    ReExports,
-    RaisesError,
-    Configures,
-    TestedBy,
-    TestUsesFixture,
-    CoOccursInTest,
-    Documents,
-    ReferencesConcept,
-    Aliases,
-    ErrorDescribes,
-}
-
-/// One extracted entity, anchored to a file + line.
-#[deprecated(
-    since = "0.0.0",
-    note = "Use KgNodeKind/KgEdgeKind from the graph module instead"
-)]
-#[allow(deprecated)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct RawEntity {
-    pub id: String,
-    pub entity_type: EntityType,
-    pub text: String,
-    #[serde(default)]
-    pub span: (usize, usize),
-    pub file: String,
-    pub line: usize,
+/// redb table name constants for entity storage, re-exported from
+/// `trusty_contracts::tables`.
+pub mod tables {
+    pub use trusty_contracts::tables::*;
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
     use super::*;
 

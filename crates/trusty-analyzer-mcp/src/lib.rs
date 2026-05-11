@@ -233,6 +233,7 @@ impl AnalyzerMcpServer {
             "cluster_concepts" => self.handle_cluster_concepts(args).await,
             "analyzer_health" => self.handle_analyzer_health(args).await,
             "ingest_scip" => self.handle_ingest_scip(args).await,
+            "extract_ner" => self.handle_extract_ner(args).await,
             _ => Err(DispatchError::UnknownTool),
         }
     }
@@ -320,6 +321,13 @@ impl AnalyzerMcpServer {
 
     async fn handle_analyzer_health(&self, _args: &Value) -> Result<Value, DispatchError> {
         self.get("/health").await
+    }
+
+    async fn handle_extract_ner(&self, args: &Value) -> Result<Value, DispatchError> {
+        let index_id = index_id_or_default(args);
+        let top_k = args.get("top_k").and_then(Value::as_u64).unwrap_or(50);
+        self.get(&format!("/indexes/{index_id}/ner?top_k={top_k}"))
+            .await
     }
 
     async fn handle_ingest_scip(&self, args: &Value) -> Result<Value, DispatchError> {
@@ -621,6 +629,18 @@ pub fn tool_descriptors() -> Value {
                     "index":        { "type": "string" },
                     "index_id":     { "type": "string" },
                     "scip_base64":  { "type": "string", "description": "Base64-encoded SCIP Index protobuf payload" }
+                }
+            }
+        },
+        {
+            "name": "extract_ner",
+            "description": "Extract named entities from doc comments for a code index using NER",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "index":    { "type": "string" },
+                    "index_id": { "type": "string", "description": "Index ID" },
+                    "top_k":    { "type": "integer", "description": "Max entities to return", "default": 50 }
                 }
             }
         },

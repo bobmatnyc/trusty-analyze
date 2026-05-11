@@ -48,11 +48,13 @@ open = "5"
 # here to avoid a name collision; if a future task needs it, expose it
 # through a renamed package alias.
 trusty-common = "0.1.2"
+trusty-contracts = "0.1"
 
 # Local development override: point at the sibling trusty-common checkout
 # so changes there flow straight into this workspace without a publish cycle.
 [patch.crates-io]
 trusty-common = { path = "../trusty-common/crates/trusty-common" }
+trusty-contracts = { path = "../trusty-common/crates/trusty-contracts" }
 
 [package]
 name = "trusty-analyzer"

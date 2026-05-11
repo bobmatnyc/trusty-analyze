@@ -37,11 +37,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use trusty_analyzer_core::{
-    bow_embedding, cluster as run_cluster, extract_kg_from_scip, facts::new_fact, quality,
-    AnalyzerRegistry, ClusterResult, FactStore, IndexSummary, ScipIngestSummary,
-    TrustySearchClient,
+    bow_embedding, cluster as run_cluster, extract_doc_comments, extract_kg_from_scip,
+    facts::new_fact, quality, AnalyzerRegistry, ClusterResult, FactStore, IndexSummary,
+    NerExtractor, ScipIngestSummary, TrustySearchClient,
 };
-use trusty_analyzer_types::{KgGraph, KgNode};
+use trusty_analyzer_types::{KgGraph, KgNode, RawEntity};
 use trusty_embedder::{BowEmbedder, Embedder, EmbedderKind};
 
 /// Default port the analyzer daemon binds to. Picked to sit next to
@@ -128,6 +128,7 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
         .route("/indexes/{id}/graph", get(graph_for_index))
         .route("/indexes/{id}/entities", get(entities_for_index))
         .route("/indexes/{id}/clusters", get(clusters_for_index))
+        .route("/indexes/{id}/ner", get(ner_for_index))
         .route("/indexes/{id}/scip", post(ingest_scip))
         .route("/facts", get(list_facts).post(upsert_fact))
         .route("/facts/{id}", delete(delete_fact))
@@ -430,6 +431,47 @@ async fn clusters_for_index(
         chunk_count: chunks.len(),
         clusters: cluster_items_from(result),
     }))
+}
+
+#[derive(Deserialize)]
+pub struct NerQueryParams {
+    /// Cap on the number of entities returned (after extraction).
+    pub top_k: Option<usize>,
+}
+
+/// Why: surfaces named-entity candidates pulled from doc comments so callers
+/// (Claude Code, UI dashboards) can browse natural-language concepts side by
+/// side with structural symbols. The route is always available; the actual
+/// ONNX NER model is feature-gated and opportunistically loaded at startup.
+/// What: fetches chunks for `id`, runs `extract_doc_comments` on each chunk's
+/// content, runs the NER extractor (no-op when the `ner` feature is disabled
+/// or the model file is missing), and returns the entities truncated to
+/// `top_k` (default 50).
+/// Test: with a stub search client returning no chunks the handler returns an
+/// empty array and HTTP 200; the NER feature flag is exercised by the core
+/// crate's `ner` module tests.
+async fn ner_for_index(
+    State(state): State<Arc<AnalyzerAppState>>,
+    Path(id): Path<String>,
+    Query(params): Query<NerQueryParams>,
+) -> Result<Json<Vec<RawEntity>>, StatusCode> {
+    let chunks = fetch_chunks(&state, &id).await?;
+    let top_k = params.top_k.unwrap_or(50);
+    let extractor = NerExtractor::try_load();
+
+    let mut entities: Vec<RawEntity> = Vec::new();
+    for chunk in &chunks {
+        let docs = extract_doc_comments(&chunk.content);
+        if docs.is_empty() {
+            continue;
+        }
+        entities.extend(extractor.extract(&docs, &chunk.file));
+        if entities.len() >= top_k {
+            break;
+        }
+    }
+    entities.truncate(top_k);
+    Ok(Json(entities))
 }
 
 #[derive(Serialize)]

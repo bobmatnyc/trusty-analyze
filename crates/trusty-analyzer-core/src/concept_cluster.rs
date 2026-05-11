@@ -236,6 +236,43 @@ pub fn bow_embedding(text: &str, dim: usize) -> Vec<f32> {
     v
 }
 
+/// Cluster chunk contents using BoW embeddings and emit `RawEntity` records
+/// (`EntityType::ConceptCluster`) per cluster for knowledge-graph integration.
+///
+/// Why: the HTTP/MCP surface needs not only cluster assignments but also
+/// graph-native entities so downstream KG consumers (search ranking, fact
+/// store) can reference clusters by stable id.
+/// What: builds a 256-dim BoW vector for each `(chunk_id, content)` pair, runs
+/// `cluster()` with seed=42 and `max_iter=100`, then for each cluster emits a
+/// `RawEntity::new(EntityType::ConceptCluster, label, (0,0), file, 0)`. The
+/// id is the deterministic SHA-256 of `(ConceptCluster, label, file)` from
+/// `RawEntity::new`, so re-running on the same input produces stable ids.
+/// Test: `cluster_and_emit_entities_emits_one_per_cluster` exercises a small
+/// two-cluster corpus and verifies each emitted entity has the expected
+/// `entity_type`, non-empty `text`, and stable `id`.
+pub fn cluster_and_emit_entities(
+    contents: &[(&str, &str)],
+    k: usize,
+    file: &str,
+) -> Vec<trusty_analyzer_types::RawEntity> {
+    use trusty_analyzer_types::{EntityType, RawEntity};
+
+    if contents.is_empty() {
+        return Vec::new();
+    }
+    const BOW_DIM: usize = 256;
+    let embeddings: Vec<(String, Vec<f32>)> = contents
+        .iter()
+        .map(|(id, content)| ((*id).to_string(), bow_embedding(content, BOW_DIM)))
+        .collect();
+    let result = cluster(&embeddings, k, 100, 42);
+    result
+        .clusters
+        .into_iter()
+        .map(|c| RawEntity::new(EntityType::ConceptCluster, c.label, (0, 0), file, 0))
+        .collect()
+}
+
 fn bucket_inc(v: &mut [f32], token: &str, dim: usize) {
     let hash = token
         .bytes()
@@ -384,6 +421,43 @@ mod tests {
             .collect();
         let result = cluster(&embeddings, 10, 50, 0); // k=10 > 3 inputs
         assert!(result.clusters.len() <= 3, "k should be clamped");
+    }
+
+    #[test]
+    fn cluster_and_emit_entities_emits_one_per_cluster() {
+        use trusty_analyzer_types::EntityType;
+
+        let contents = vec![
+            ("a1", "async tokio runtime spawn task"),
+            ("a2", "async tokio runtime spawn future"),
+            ("a3", "async runtime spawn task await"),
+            ("b1", "serde serialize derive json"),
+            ("b2", "serde serialize derive json wire"),
+            ("b3", "serde derive json wire format"),
+        ];
+        let entities = cluster_and_emit_entities(&contents, 2, "src/lib.rs");
+        assert!(
+            !entities.is_empty() && entities.len() <= 2,
+            "expected 1..=2 entities, got {}",
+            entities.len()
+        );
+        for e in &entities {
+            assert_eq!(e.entity_type, EntityType::ConceptCluster);
+            assert!(!e.text.is_empty(), "cluster label should be non-empty");
+            assert_eq!(e.file, "src/lib.rs");
+            assert!(!e.id.is_empty(), "RawEntity::new must produce an id");
+        }
+        // Determinism: same inputs yield same ids.
+        let again = cluster_and_emit_entities(&contents, 2, "src/lib.rs");
+        let ids_a: Vec<_> = entities.iter().map(|e| &e.id).collect();
+        let ids_b: Vec<_> = again.iter().map(|e| &e.id).collect();
+        assert_eq!(ids_a, ids_b, "entity ids must be stable across runs");
+    }
+
+    #[test]
+    fn cluster_and_emit_entities_empty_when_no_inputs() {
+        let entities = cluster_and_emit_entities(&[], 4, "src/foo.rs");
+        assert!(entities.is_empty());
     }
 
     #[test]

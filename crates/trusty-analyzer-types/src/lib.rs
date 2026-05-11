@@ -18,7 +18,6 @@ pub mod graph;
 pub use blame::ChunkBlame;
 pub use chunk::CodeChunk;
 pub use complexity::{CodeSmell, ComplexityGrade, ComplexityMetrics};
-#[allow(deprecated)]
-pub use entity::{EdgeKind, EntityType, RawEntity};
+pub use entity::{fact_hash_str, EdgeKind, EntityType, RawEntity};
 pub use facts::FactRecord;
 pub use graph::{KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
