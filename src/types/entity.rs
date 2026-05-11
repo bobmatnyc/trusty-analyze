@@ -2,21 +2,22 @@
 //!
 //! Why: trusty-search-core, trusty-analyzer-core, and ingest pipelines all
 //! consume the same `EntityType` / `EdgeKind` / `RawEntity` shapes. The shared
-//! `trusty-contracts` crate owns the canonical definitions (no tree-sitter
+//! `trusty-symgraph` crate owns the canonical definitions (no tree-sitter
 //! dep) and this module simply re-exports them so existing callers continue to
 //! work via `crate::types::{EntityType, EdgeKind, RawEntity}`.
 //!
-//! What: pure re-exports from `trusty_contracts`. No local definitions.
+//! What: pure re-exports from `trusty_symgraph`. No local definitions.
 //!
 //! Test: `entity_type_round_trips` exercises serde round-tripping through the
 //! re-exported types.
 
-pub use trusty_contracts::{fact_hash_str, EdgeKind, EntityType, RawEntity};
+pub use trusty_symgraph::contracts::EdgeKind;
+pub use trusty_symgraph::{fact_hash_str, EntityType, RawEntity};
 
 /// redb table name constants for entity storage, re-exported from
-/// `trusty_contracts::tables`.
+/// `trusty_symgraph::contracts::tables`.
 pub mod tables {
-    pub use trusty_contracts::tables::*;
+    pub use trusty_symgraph::contracts::tables::*;
 }
 
 #[cfg(test)]

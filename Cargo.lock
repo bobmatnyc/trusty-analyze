@@ -3008,7 +3008,7 @@ dependencies = [
  "tree-sitter-swift",
  "tree-sitter-typescript",
  "trusty-common",
- "trusty-contracts",
+ "trusty-symgraph",
  "xxhash-rust",
 ]
 
@@ -3033,11 +3033,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "trusty-contracts"
-version = "0.1.0"
+name = "trusty-symgraph"
+version = "0.2.1"
 dependencies = [
+ "anyhow",
  "serde",
+ "serde_json",
  "sha2",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
@@ -3886,4 +3890,4 @@ checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
 
 [[patch.unused]]
 name = "trusty-common"
-version = "0.3.0"
+version = "0.3.1"

@@ -43,7 +43,7 @@ dashmap            = "5"
 include_dir        = "0.7"
 mime_guess         = "2"
 trusty-common      = { version = "0.1.2", features = ["axum-server"] }
-trusty-contracts   = "0.1"
+trusty-symgraph    = "0.2.0"
 tree-sitter            = "0.24"
 tree-sitter-rust       = "0.23"
 tree-sitter-typescript = "0.23"
@@ -79,4 +79,4 @@ http-body-util = "0.1"
 
 [patch.crates-io]
 trusty-common    = { path = "../trusty-common/crates/trusty-common" }
-trusty-contracts = { path = "../trusty-common/crates/trusty-contracts" }
+trusty-symgraph  = { path = "../trusty-common/crates/trusty-symgraph" }
