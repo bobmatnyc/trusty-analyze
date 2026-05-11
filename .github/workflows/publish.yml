@@ -42,10 +42,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout trusty-common (for [patch.crates-io])
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: bobmatnyc/trusty-common
           path: trusty-common-ci
