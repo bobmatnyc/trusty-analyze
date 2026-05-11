@@ -30,6 +30,7 @@ pub use adapters::c::CAnalyzer;
 pub use adapters::cpp::CppAnalyzer;
 pub use adapters::csharp::CSharpAnalyzer;
 pub use adapters::kotlin::KotlinAnalyzer;
+pub use adapters::scala::ScalaAnalyzer;
 pub use adapters::swift::SwiftAnalyzer;
 pub use detection::{DetectionResult, LanguageDetector};
 pub use lang::{LanguageAnalyzer, StaticAnalysisResult};
