@@ -5,6 +5,7 @@
 //! serde round-trips JSON produced by the search daemon without translation.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Bundle of per-chunk complexity numbers and detected smells.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -20,7 +21,18 @@ pub struct ComplexityMetrics {
 }
 
 /// Letter grade derived from cyclomatic complexity. A is best, F is worst.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Note: `E` is intentionally absent. The grading bands match trusty-search's
+/// thresholds exactly (A/B/C/D/F), and the variant set is part of the wire
+/// format — adding `E` would break JSON compatibility with existing payloads
+/// produced by the search daemon.
+///
+/// Variants are declared in natural order (A < B < C < D < F), so the derived
+/// `PartialOrd`/`Ord` impls let callers compare grades directly (e.g. to flag
+/// any chunk worse than `B`).
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
 pub enum ComplexityGrade {
     #[default]
     A,
@@ -28,6 +40,24 @@ pub enum ComplexityGrade {
     C,
     D,
     F,
+}
+
+impl fmt::Display for ComplexityGrade {
+    /// Why: Lets callers render the grade as a single letter for HTTP/MCP
+    /// responses and CLI output without each call site re-implementing the
+    /// match.
+    /// What: Writes one of `"A"`, `"B"`, `"C"`, `"D"`, `"F"`.
+    /// Test: `assert_eq!(ComplexityGrade::B.to_string(), "B")`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            ComplexityGrade::A => "A",
+            ComplexityGrade::B => "B",
+            ComplexityGrade::C => "C",
+            ComplexityGrade::D => "D",
+            ComplexityGrade::F => "F",
+        };
+        f.write_str(s)
+    }
 }
 
 impl ComplexityGrade {
@@ -66,6 +96,23 @@ mod tests {
         assert_eq!(ComplexityGrade::from_cyclomatic(11), ComplexityGrade::C);
         assert_eq!(ComplexityGrade::from_cyclomatic(16), ComplexityGrade::D);
         assert_eq!(ComplexityGrade::from_cyclomatic(50), ComplexityGrade::F);
+    }
+
+    #[test]
+    fn grade_display_is_single_letter() {
+        assert_eq!(ComplexityGrade::A.to_string(), "A");
+        assert_eq!(ComplexityGrade::B.to_string(), "B");
+        assert_eq!(ComplexityGrade::C.to_string(), "C");
+        assert_eq!(ComplexityGrade::D.to_string(), "D");
+        assert_eq!(ComplexityGrade::F.to_string(), "F");
+    }
+
+    #[test]
+    fn grade_orders_a_through_f() {
+        assert!(ComplexityGrade::A < ComplexityGrade::B);
+        assert!(ComplexityGrade::B < ComplexityGrade::C);
+        assert!(ComplexityGrade::C < ComplexityGrade::D);
+        assert!(ComplexityGrade::D < ComplexityGrade::F);
     }
 
     #[test]

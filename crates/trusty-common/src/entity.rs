@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 
 /// Taxonomy of program entities surfaced from the AST. Variant names match
 /// `trusty_search_core::entity::EntityType` so wire-format payloads decode.
+#[deprecated(
+    since = "0.0.0",
+    note = "Use KgNodeKind/KgEdgeKind from the graph module instead"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum EntityType {
     NamedType,
@@ -25,6 +29,10 @@ pub enum EntityType {
 }
 
 /// Edge kinds for the symbol knowledge graph. Mirrors the search side.
+#[deprecated(
+    since = "0.0.0",
+    note = "Use KgNodeKind/KgEdgeKind from the graph module instead"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum EdgeKind {
     CallsFunction,
@@ -46,7 +54,12 @@ pub enum EdgeKind {
 }
 
 /// One extracted entity, anchored to a file + line.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[deprecated(
+    since = "0.0.0",
+    note = "Use KgNodeKind/KgEdgeKind from the graph module instead"
+)]
+#[allow(deprecated)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RawEntity {
     pub id: String,
     pub entity_type: EntityType,
@@ -58,6 +71,7 @@ pub struct RawEntity {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 

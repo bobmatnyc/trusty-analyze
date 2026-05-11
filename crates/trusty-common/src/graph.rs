@@ -13,6 +13,7 @@
 //! `KgGraph::merge` deduplicates by node id.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// A node in the code knowledge graph. Language-neutral.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -40,8 +41,37 @@ pub enum KgNodeKind {
     Dependency,
 }
 
+impl fmt::Display for KgNodeKind {
+    /// Why: Provides a stable, snake_case string form for use in `KgNode.id`
+    /// construction (`"{language}:{kind}:{qualified_name}"`) so adapters
+    /// across languages produce uniform ids without each one re-implementing
+    /// the variant-to-string mapping.
+    /// What: Writes the variant as snake_case (e.g. `Repository` → `"repository"`,
+    /// `TestCase` → `"test_case"`, `CallExpression` → `"call_expression"`).
+    /// Test: `assert_eq!(KgNodeKind::TestCase.to_string(), "test_case")`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            KgNodeKind::Repository => "repository",
+            KgNodeKind::Package => "package",
+            KgNodeKind::Module => "module",
+            KgNodeKind::File => "file",
+            KgNodeKind::Class => "class",
+            KgNodeKind::Interface => "interface",
+            KgNodeKind::Function => "function",
+            KgNodeKind::Method => "method",
+            KgNodeKind::Field => "field",
+            KgNodeKind::Import => "import",
+            KgNodeKind::Export => "export",
+            KgNodeKind::CallExpression => "call_expression",
+            KgNodeKind::TestCase => "test_case",
+            KgNodeKind::Dependency => "dependency",
+        };
+        f.write_str(s)
+    }
+}
+
 /// One node in the knowledge graph.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KgNode {
     /// Stable id: `"{language}:{kind}:{qualified_name}"`.
     pub id: String,
@@ -83,7 +113,7 @@ pub enum KgEdgeKind {
 }
 
 /// One edge between two nodes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KgEdge {
     /// `KgNode.id` of the source.
     pub from: String,
@@ -134,13 +164,13 @@ impl KgGraph {
             }
         }
 
-        let mut seen_edges: HashSet<(String, String, String)> = self
+        let mut seen_edges: HashSet<(String, String, KgEdgeKind)> = self
             .edges
             .iter()
-            .map(|e| (e.from.clone(), e.to.clone(), format!("{:?}", e.kind)))
+            .map(|e| (e.from.clone(), e.to.clone(), e.kind.clone()))
             .collect();
         for e in other.edges {
-            let k = (e.from.clone(), e.to.clone(), format!("{:?}", e.kind));
+            let k = (e.from.clone(), e.to.clone(), e.kind.clone());
             if seen_edges.insert(k) {
                 self.edges.push(e);
             }
@@ -202,6 +232,14 @@ mod tests {
         b.edges.push(e("y", "z"));
         a.merge(b);
         assert_eq!(a.edge_count(), 2);
+    }
+
+    #[test]
+    fn node_kind_display_is_snake_case() {
+        assert_eq!(KgNodeKind::Repository.to_string(), "repository");
+        assert_eq!(KgNodeKind::TestCase.to_string(), "test_case");
+        assert_eq!(KgNodeKind::CallExpression.to_string(), "call_expression");
+        assert_eq!(KgNodeKind::Function.to_string(), "function");
     }
 
     #[test]

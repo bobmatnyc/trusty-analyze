@@ -7,9 +7,31 @@
 use serde::{Deserialize, Serialize};
 
 /// One canonical fact about an indexed corpus.
+///
+/// # Caveats
+///
+/// **JavaScript precision loss.** `id` is a `u64`. Values above 2^53 (the
+/// largest integer JavaScript's `Number` can represent exactly) will silently
+/// lose precision when parsed by browser clients via `JSON.parse`. If the
+/// HTTP API is ever consumed by browser/JS clients, serialize `id` as a
+/// `String` (e.g. via `#[serde(with = "...")]`) to preserve precision.
+///
+/// **Hash stability across toolchains.** trusty-analyzer-core currently
+/// computes `id` with `std::collections::hash_map::DefaultHasher`, whose
+/// algorithm is **not stable across Rust toolchain versions** (see the
+/// `DefaultHasher` docs). Persisted redb entries written by one toolchain
+/// may be unreadable — or worse, silently mismatched — after upgrading
+/// the compiler. For production persistence, switch to a stable, explicit
+/// hash algorithm (FxHash, AHash with a fixed seed, or xxhash) so ids
+/// remain stable across rebuilds.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FactRecord {
     /// Stable hash of `(subject, predicate, object)`.
+    ///
+    /// See the type-level docs for two important caveats: precision loss
+    /// when consumed by JavaScript clients (values > 2^53), and hash
+    /// instability across Rust toolchain versions when `DefaultHasher`
+    /// is used to compute the value.
     pub id: u64,
     pub subject: String,
     pub predicate: String,

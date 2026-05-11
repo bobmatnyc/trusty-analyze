@@ -82,7 +82,7 @@ fn cyclomatic_of(c: &CodeChunk) -> u32 {
 
 fn grade_of(c: &CodeChunk) -> ComplexityGrade {
     if let Some(m) = &c.complexity {
-        m.grade.clone()
+        m.grade
     } else {
         compute_complexity(&c.content).grade
     }
