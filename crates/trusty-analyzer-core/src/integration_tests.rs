@@ -18,8 +18,8 @@
 use std::path::Path;
 
 use trusty_analyzer_lang::{adapters::rust::RustAnalyzer, LanguageAnalyzer};
-use trusty_common::complexity::ComplexityGrade;
-use trusty_common::{KgEdgeKind, KgNodeKind};
+use trusty_analyzer_types::complexity::ComplexityGrade;
+use trusty_analyzer_types::{KgEdgeKind, KgNodeKind};
 
 use crate::complexity::compute_complexity_for;
 use crate::quality::aggregate_quality;

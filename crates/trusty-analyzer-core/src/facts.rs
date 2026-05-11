@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use redb::{Database, ReadableTable, TableDefinition};
-use trusty_common::facts::FactRecord;
+use trusty_analyzer_types::facts::FactRecord;
 
 const FACTS_TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("facts");
 

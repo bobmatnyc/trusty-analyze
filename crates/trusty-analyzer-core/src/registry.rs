@@ -19,7 +19,7 @@ use trusty_analyzer_lang::{
     GoAnalyzer, JavaAnalyzer, JavaScriptAnalyzer, LanguageAnalyzer, PythonAnalyzer, RustAnalyzer,
     StaticAnalysisResult, TypeScriptAnalyzer,
 };
-use trusty_common::CodeChunk;
+use trusty_analyzer_types::CodeChunk;
 
 /// Holds all registered language analyzers and dispatches to the right one.
 pub struct AnalyzerRegistry {
@@ -120,7 +120,7 @@ impl Default for AnalyzerRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use trusty_common::KgNodeKind;
+    use trusty_analyzer_types::KgNodeKind;
 
     fn chunk(file: &str, content: &str) -> CodeChunk {
         CodeChunk {

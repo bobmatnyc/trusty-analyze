@@ -11,7 +11,7 @@
 //! asserts the Function node is produced.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -185,10 +185,26 @@ fn walk_declarations(
 ) {
     match node.kind() {
         "function_declaration" | "function" => {
-            emit_named_callable(node, src, chunk, language, graph, file_id, KgNodeKind::Function);
+            emit_named_callable(
+                node,
+                src,
+                chunk,
+                language,
+                graph,
+                file_id,
+                KgNodeKind::Function,
+            );
         }
         "method_definition" => {
-            emit_named_callable(node, src, chunk, language, graph, file_id, KgNodeKind::Method);
+            emit_named_callable(
+                node,
+                src,
+                chunk,
+                language,
+                graph,
+                file_id,
+                KgNodeKind::Method,
+            );
         }
         "lexical_declaration" | "variable_declaration" => {
             emit_arrow_var_declarators(node, src, chunk, language, graph, file_id);
@@ -255,7 +271,9 @@ fn emit_named_callable(
     file_id: &str,
     kind: KgNodeKind,
 ) {
-    let Some(name) = name_of(node, src) else { return };
+    let Some(name) = name_of(node, src) else {
+        return;
+    };
     let n = make_node(kind, &name, chunk, node, language);
     let id = n.id.clone();
     graph.nodes.push(n);
@@ -327,7 +345,9 @@ fn emit_class_declaration(
     graph: &mut KgGraph,
     file_id: &str,
 ) {
-    let Some(name) = name_of(node, src) else { return };
+    let Some(name) = name_of(node, src) else {
+        return;
+    };
     let n = make_node(KgNodeKind::Class, &name, chunk, node, language);
     let id = n.id.clone();
     graph.nodes.push(n);
@@ -557,7 +577,8 @@ mod tests {
 
     #[test]
     fn ts_adapter_extracts_call_edges() {
-        let src = "function caller() {\n    helper();\n    obj.method();\n}\nfunction helper() {}\n";
+        let src =
+            "function caller() {\n    helper();\n    obj.method();\n}\nfunction helper() {}\n";
         let c = make_chunk(src, "test.ts");
         let r = TypeScriptAnalyzer::new().analyze_chunks(&[c]);
         let calls: Vec<_> = r

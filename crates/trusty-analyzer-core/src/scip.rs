@@ -20,10 +20,8 @@
 
 use anyhow::{Context, Result};
 use protobuf::Message;
-use scip::types::{
-    symbol_information::Kind as ScipKind, Index, Occurrence, SymbolInformation,
-};
-use trusty_common::{KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use scip::types::{symbol_information::Kind as ScipKind, Index, Occurrence, SymbolInformation};
+use trusty_analyzer_types::{KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 /// Outcome of a SCIP ingest, suitable for JSON serialization in API responses.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -283,8 +281,8 @@ fn language_from_path(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scip::types::{Document, Index, Occurrence, Relationship, Symbol, SymbolInformation};
     use protobuf::EnumOrUnknown;
+    use scip::types::{Document, Index, Occurrence, Relationship, Symbol, SymbolInformation};
 
     fn occurrence(symbol: &str, definition: bool) -> Occurrence {
         let mut occ = Occurrence::new();
@@ -375,16 +373,10 @@ mod tests {
         let mut doc = Document::new();
         doc.relative_path = "src/lib.rs".into();
         doc.language = "rust".into();
-        doc.symbols.push(sym_info(
-            "rust . . caller().",
-            ScipKind::Function,
-            "caller",
-        ));
-        doc.symbols.push(sym_info(
-            "rust . . callee().",
-            ScipKind::Function,
-            "callee",
-        ));
+        doc.symbols
+            .push(sym_info("rust . . caller().", ScipKind::Function, "caller"));
+        doc.symbols
+            .push(sym_info("rust . . callee().", ScipKind::Function, "callee"));
         // Definition of caller, then a reference inside it to callee.
         doc.occurrences.push(occurrence("rust . . caller().", true));
         doc.occurrences
@@ -411,13 +403,9 @@ mod tests {
         let mut doc = Document::new();
         doc.relative_path = "src/lib.rs".into();
         doc.language = "rust".into();
-        doc.symbols.push(sym_info(
-            "rust . . hello().",
-            ScipKind::Function,
-            "hello",
-        ));
-        doc.occurrences
-            .push(occurrence("rust . . hello().", true));
+        doc.symbols
+            .push(sym_info("rust . . hello().", ScipKind::Function, "hello"));
+        doc.occurrences.push(occurrence("rust . . hello().", true));
 
         let mut index = Index::new();
         index.documents.push(doc);

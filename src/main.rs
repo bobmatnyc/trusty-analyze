@@ -148,23 +148,19 @@ async fn main() -> Result<()> {
             // Why: keeping the daemon resilient when the ONNX model is
             // missing (CI, fresh machines, offline) is more valuable than
             // hard-failing on startup.
-            let embedder: Arc<dyn Embedder> =
-                match NeuralEmbedder::new(Some(&fastembed_cache)) {
-                    Ok(e) => {
-                        tracing::info!(
-                            "neural embedder loaded from {}",
-                            fastembed_cache.display()
-                        );
-                        Arc::new(e)
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            "neural embedder failed to load from {} ({e:#}); using BOW",
-                            fastembed_cache.display()
-                        );
-                        Arc::new(BowEmbedder::default())
-                    }
-                };
+            let embedder: Arc<dyn Embedder> = match NeuralEmbedder::new(Some(&fastembed_cache)) {
+                Ok(e) => {
+                    tracing::info!("neural embedder loaded from {}", fastembed_cache.display());
+                    Arc::new(e)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "neural embedder failed to load from {} ({e:#}); using BOW",
+                        fastembed_cache.display()
+                    );
+                    Arc::new(BowEmbedder::default())
+                }
+            };
             let state = AnalyzerAppState::new(search, facts).with_embedder(embedder);
 
             if mcp {

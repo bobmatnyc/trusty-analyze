@@ -33,14 +33,13 @@ use axum::{
     Router,
 };
 use serde::{Deserialize, Serialize};
-use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use trusty_analyzer_core::{
     bow_embedding, cluster as run_cluster, extract_kg_from_scip, facts::new_fact, quality,
     AnalyzerRegistry, ClusterResult, FactStore, IndexSummary, ScipIngestSummary,
     TrustySearchClient,
 };
-use trusty_common::{KgGraph, KgNode};
+use trusty_analyzer_types::{KgGraph, KgNode};
 use trusty_embedder::{BowEmbedder, Embedder, EmbedderKind};
 
 /// Default port the analyzer daemon binds to. Picked to sit next to
@@ -119,33 +118,27 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
         .with_state(Arc::new(state))
 }
 
-/// Bind to `addr` (or auto-pick a free port from `start_port` upward) and run
-/// the daemon until the future returns. The actually-bound `SocketAddr` is
-/// returned so callers can advertise it.
+/// Bind to `start_port` (or auto-pick a free port walking forward) and run
+/// the daemon until the future returns. The actually-bound address is also
+/// written to the shared trusty-* daemon address file so other tools can
+/// discover the live port without re-implementing the search.
+///
+/// Why: port auto-detection and daemon-addr handshake are duplicated across
+/// every trusty-* daemon. Using the shared `trusty_common` helpers keeps
+/// behavior consistent (warn logging, fixed walk window, addr file shape).
+/// What: walks up to 64 ports forward from `start_port`, logs the live URL,
+/// then `axum::serve`s the router.
+/// Test: integration tests bind their own listener — exercised by
+/// `cargo test -p trusty-analyzer-service`.
 pub async fn serve(state: AnalyzerAppState, start_port: u16) -> Result<()> {
-    let addr = pick_port(start_port).await?;
-    let listener = TcpListener::bind(addr).await?;
+    let start_addr: SocketAddr = ([127, 0, 0, 1], start_port).into();
+    let listener = trusty_common::bind_with_auto_port(start_addr, 64).await?;
     let actual = listener.local_addr()?;
+    trusty_common::write_daemon_addr("trusty-analyzer", &actual.to_string())?;
     tracing::info!("trusty-analyzer listening on http://{actual}");
     let app = build_router(state);
     axum::serve(listener, app).await?;
     Ok(())
-}
-
-/// Find the lowest port >= `start` that we can bind. Mirrors the trusty-search
-/// "auto-detect free port" UX.
-async fn pick_port(start: u16) -> Result<SocketAddr> {
-    for port in start..start.saturating_add(64) {
-        let addr: SocketAddr = ([127, 0, 0, 1], port).into();
-        if TcpListener::bind(addr).await.is_ok() {
-            // Re-bind in `serve()` after returning — this is a probe.
-            return Ok(addr);
-        }
-    }
-    Err(anyhow::anyhow!(
-        "no free port found between {start} and {}",
-        start.saturating_add(64)
-    ))
 }
 
 #[derive(Serialize)]
@@ -397,16 +390,16 @@ async fn clusters_for_index(
                 "embedder ({:?}) failed ({e:#}); falling back to BOW",
                 effective_kind
             );
-            let fallback: Vec<Vec<f32>> = texts
-                .iter()
-                .map(|t| bow_embedding(t, BOW_DIM))
-                .collect();
+            let fallback: Vec<Vec<f32>> = texts.iter().map(|t| bow_embedding(t, BOW_DIM)).collect();
             (fallback, EmbedderKind::Bow, BOW_DIM)
         }
     };
 
-    let embeddings: Vec<(String, Vec<f32>)> =
-        chunks.iter().zip(vecs).map(|(c, v)| (c.id.clone(), v)).collect();
+    let embeddings: Vec<(String, Vec<f32>)> = chunks
+        .iter()
+        .zip(vecs)
+        .map(|(c, v)| (c.id.clone(), v))
+        .collect();
     let result = run_cluster(&embeddings, k, 100, 42);
     let iterations = result.iterations;
     Ok(Json(ClusterResponse {
@@ -457,7 +450,7 @@ async fn ingest_scip(
 async fn fetch_chunks(
     state: &AnalyzerAppState,
     id: &str,
-) -> Result<Vec<trusty_common::CodeChunk>, StatusCode> {
+) -> Result<Vec<trusty_analyzer_types::CodeChunk>, StatusCode> {
     state.search.get_chunks(id).await.map_err(|e| {
         tracing::warn!("get_chunks({id}) failed: {e:#}");
         StatusCode::BAD_GATEWAY
@@ -530,7 +523,7 @@ async fn delete_fact(
 }
 
 /// Re-export so the binary can construct facts via the same path.
-pub use trusty_common::FactRecord as PublicFactRecord;
+pub use trusty_analyzer_types::FactRecord as PublicFactRecord;
 
 #[cfg(test)]
 mod tests {

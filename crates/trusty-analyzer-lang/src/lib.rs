@@ -20,17 +20,17 @@ pub mod lang;
 // without needing their own dependency on it.
 pub use tree_sitter;
 
-pub use adapters::javascript::JavaScriptAnalyzer;
-pub use adapters::rust::RustAnalyzer;
-pub use adapters::typescript::TypeScriptAnalyzer;
-pub use adapters::php::PhpAnalyzer;
-pub use adapters::ruby::RubyAnalyzer;
-pub use adapters::{go::GoAnalyzer, java::JavaAnalyzer, python::PythonAnalyzer};
 pub use adapters::c::CAnalyzer;
 pub use adapters::cpp::CppAnalyzer;
 pub use adapters::csharp::CSharpAnalyzer;
+pub use adapters::javascript::JavaScriptAnalyzer;
 pub use adapters::kotlin::KotlinAnalyzer;
+pub use adapters::php::PhpAnalyzer;
+pub use adapters::ruby::RubyAnalyzer;
+pub use adapters::rust::RustAnalyzer;
 pub use adapters::scala::ScalaAnalyzer;
 pub use adapters::swift::SwiftAnalyzer;
+pub use adapters::typescript::TypeScriptAnalyzer;
+pub use adapters::{go::GoAnalyzer, java::JavaAnalyzer, python::PythonAnalyzer};
 pub use detection::{DetectionResult, LanguageDetector};
 pub use lang::{LanguageAnalyzer, StaticAnalysisResult};

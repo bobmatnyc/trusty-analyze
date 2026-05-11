@@ -26,7 +26,7 @@
 //! `python_adapter_deduplicates_repeated_calls` cover call-edge extraction.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 

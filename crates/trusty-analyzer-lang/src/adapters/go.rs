@@ -27,7 +27,7 @@
 //! call edges (with weights and caller scoping), and doc comments.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -266,13 +266,7 @@ fn walk(root: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph) {
     }
 }
 
-fn emit_top_level(
-    node: Node,
-    src: &[u8],
-    chunk: &CodeChunk,
-    file_id: &str,
-    graph: &mut KgGraph,
-) {
+fn emit_top_level(node: Node, src: &[u8], chunk: &CodeChunk, file_id: &str, graph: &mut KgGraph) {
     match node.kind() {
         "function_declaration" => {
             let Some(name) = name_of(node, src) else {
@@ -412,10 +406,7 @@ fn extract_calls(body: Node, src: &[u8], caller_id: &str, file: &str) -> Vec<KgE
         // Stop at nested function-like / type bodies so each function only
         // attributes its own direct calls.
         match node.kind() {
-            "function_declaration"
-            | "method_declaration"
-            | "func_literal"
-            | "function_literal" => {
+            "function_declaration" | "method_declaration" | "func_literal" | "function_literal" => {
                 return;
             }
             "call_expression" => {
@@ -463,9 +454,7 @@ fn callee_name(call: Node, src: &[u8]) -> Option<String> {
     let fun = call.child_by_field_name("function")?;
     match fun.kind() {
         "identifier" => Some(node_text(fun, src)),
-        "selector_expression" => fun
-            .child_by_field_name("field")
-            .map(|f| node_text(f, src)),
+        "selector_expression" => fun.child_by_field_name("field").map(|f| node_text(f, src)),
         _ => None,
     }
 }

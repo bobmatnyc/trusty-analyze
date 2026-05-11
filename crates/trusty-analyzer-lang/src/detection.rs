@@ -88,9 +88,7 @@ fn detect_go(lower: &str) -> Option<&'static str> {
 }
 
 fn detect_cpp(lower: &str) -> Option<&'static str> {
-    const EXTS: &[&str] = &[
-        ".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx", ".c", ".h",
-    ];
+    const EXTS: &[&str] = &[".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx", ".c", ".h"];
     if EXTS.iter().any(|e| lower.ends_with(e)) {
         Some("cpp")
     } else {
@@ -129,11 +127,7 @@ fn build_npm(lower: &str) -> Option<&'static str> {
 }
 
 fn build_pip(lower: &str) -> Option<&'static str> {
-    matches_basename(
-        lower,
-        &["pyproject.toml", "setup.py", "requirements.txt"],
-    )
-    .then_some("pip")
+    matches_basename(lower, &["pyproject.toml", "setup.py", "requirements.txt"]).then_some("pip")
 }
 
 fn build_go_mod(lower: &str) -> Option<&'static str> {

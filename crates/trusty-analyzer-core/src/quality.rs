@@ -6,8 +6,8 @@
 //! keeps the HTTP/MCP layers thin.
 
 use serde::Serialize;
-use trusty_common::complexity::ComplexityGrade;
-use trusty_common::CodeChunk;
+use trusty_analyzer_types::complexity::ComplexityGrade;
+use trusty_analyzer_types::CodeChunk;
 
 use crate::complexity::compute_complexity;
 
@@ -88,7 +88,7 @@ fn grade_of(c: &CodeChunk) -> ComplexityGrade {
     }
 }
 
-fn smells_of(c: &CodeChunk) -> Vec<trusty_common::complexity::CodeSmell> {
+fn smells_of(c: &CodeChunk) -> Vec<trusty_analyzer_types::complexity::CodeSmell> {
     if let Some(m) = &c.complexity {
         m.smells.clone()
     } else {

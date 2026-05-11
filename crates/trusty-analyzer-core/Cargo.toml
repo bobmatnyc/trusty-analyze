@@ -6,7 +6,7 @@ description = "Code analysis primitives: complexity, smells, blame, facts, conce
 license = "MIT"
 
 [dependencies]
-trusty-common = { path = "../trusty-common" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types" }
 trusty-analyzer-lang = { path = "../trusty-analyzer-lang" }
 serde = { workspace = true }
 serde_json = { workspace = true }

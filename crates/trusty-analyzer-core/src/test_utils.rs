@@ -19,7 +19,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use trusty_common::CodeChunk;
+use trusty_analyzer_types::CodeChunk;
 
 /// Window size in lines for each generated chunk.
 const WINDOW_LINES: usize = 40;

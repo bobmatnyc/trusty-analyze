@@ -1,8 +1,8 @@
 [package]
-name = "trusty-common"
+name = "trusty-analyzer-types"
 version = "0.1.0"
 edition = "2021"
-description = "Shared types between trusty-search and trusty-analyzer"
+description = "Analyzer-specific shared types (CodeChunk, KgGraph, FactRecord)"
 license = "MIT"
 
 [dependencies]

@@ -6,7 +6,10 @@ description = "HTTP sidecar daemon for trusty-analyzer"
 license = "MIT"
 
 [dependencies]
-trusty-common = { path = "../trusty-common" }
+trusty-analyzer-types = { path = "../trusty-analyzer-types" }
+# Shared trusty-common (port binding, daemon addr file). Sourced via
+# the workspace dep and overridden to a local path via [patch.crates-io].
+trusty-common = { workspace = true }
 trusty-analyzer-core = { path = "../trusty-analyzer-core" }
 trusty-analyzer-lang = { path = "../trusty-analyzer-lang" }
 trusty-embedder = { path = "../trusty-embedder" }

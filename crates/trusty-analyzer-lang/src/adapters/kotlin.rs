@@ -21,7 +21,7 @@
 //! Test: see the `tests` module.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -485,7 +485,8 @@ mod tests {
     #[test]
     fn kotlin_call_edges_scoped_and_deduped() {
         let a = KotlinAnalyzer::new();
-        let src = "class Foo {\n  fun greet() {\n    hello()\n    hello()\n    obj.method()\n  }\n}\n";
+        let src =
+            "class Foo {\n  fun greet() {\n    hello()\n    hello()\n    obj.method()\n  }\n}\n";
         let r = a.analyze_chunks(&[make_chunk(src, "f.kt")]);
         let calls: Vec<&KgEdge> = r
             .graph
@@ -505,11 +506,7 @@ mod tests {
             hello_edges[0].weight
         );
         let method_edges: Vec<_> = calls.iter().filter(|e| e.to.ends_with(":method")).collect();
-        assert_eq!(
-            method_edges.len(),
-            1,
-            "expected one method edge: {calls:?}"
-        );
+        assert_eq!(method_edges.len(), 1, "expected one method edge: {calls:?}");
         assert!(
             calls
                 .iter()
@@ -530,10 +527,7 @@ mod tests {
             .filter(|n| matches!(n.kind, KgNodeKind::Import))
             .collect();
         let names: Vec<&str> = imports.iter().map(|n| n.name.as_str()).collect();
-        assert!(
-            names.contains(&"kotlin.collections.List"),
-            "got {names:?}"
-        );
+        assert!(names.contains(&"kotlin.collections.List"), "got {names:?}");
         assert!(names.contains(&"java.util.HashMap"), "got {names:?}");
     }
 }

@@ -21,7 +21,7 @@
 //! extraction, qualified method IDs, call scoping, dedup, `#include` imports.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -368,9 +368,7 @@ fn callee_name(call: Node, src: &[u8]) -> Option<String> {
 fn leaf_callee_name(node: Node, src: &[u8]) -> Option<String> {
     match node.kind() {
         "identifier" => Some(node_text(node, src)),
-        "field_expression" => node
-            .child_by_field_name("field")
-            .map(|p| node_text(p, src)),
+        "field_expression" => node.child_by_field_name("field").map(|p| node_text(p, src)),
         "qualified_identifier" => {
             // ns::other → leaf is `other`. Walk children, take last identifier.
             let mut cursor = node.walk();

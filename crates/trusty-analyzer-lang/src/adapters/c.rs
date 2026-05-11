@@ -18,7 +18,7 @@
 //! extraction, call scoping, dedup, and `#include` imports.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -320,9 +320,7 @@ fn callee_name(call: Node, src: &[u8]) -> Option<String> {
     let fun = call.child_by_field_name("function")?;
     match fun.kind() {
         "identifier" => Some(node_text(fun, src)),
-        "field_expression" => fun
-            .child_by_field_name("field")
-            .map(|p| node_text(p, src)),
+        "field_expression" => fun.child_by_field_name("field").map(|p| node_text(p, src)),
         _ => None,
     }
 }
@@ -358,7 +356,10 @@ mod tests {
     #[test]
     fn c_extracts_function() {
         let a = CAnalyzer::new();
-        let r = a.analyze_chunks(&[make_chunk("int add(int a, int b) { return a + b; }\n", "f.c")]);
+        let r = a.analyze_chunks(&[make_chunk(
+            "int add(int a, int b) { return a + b; }\n",
+            "f.c",
+        )]);
         let funcs: Vec<&KgNode> = r
             .graph
             .nodes

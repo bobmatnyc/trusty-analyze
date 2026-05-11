@@ -30,9 +30,7 @@ pub struct ComplexityMetrics {
 /// Variants are declared in natural order (A < B < C < D < F), so the derived
 /// `PartialOrd`/`Ord` impls let callers compare grades directly (e.g. to flag
 /// any chunk worse than `B`).
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ComplexityGrade {
     #[default]
     A,

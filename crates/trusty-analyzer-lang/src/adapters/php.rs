@@ -25,7 +25,7 @@
 //! imports.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -539,9 +539,7 @@ fn callee_name(call: Node, src: &[u8]) -> Option<String> {
                 _ => None,
             }
         }
-        "member_call_expression"
-        | "nullsafe_member_call_expression"
-        | "scoped_call_expression" => {
+        "member_call_expression" | "nullsafe_member_call_expression" | "scoped_call_expression" => {
             let n = call.child_by_field_name("name")?;
             if n.kind() == "name" {
                 Some(node_text(n, src))
@@ -776,9 +774,7 @@ mod tests {
             .filter(|e| matches!(e.kind, KgEdgeKind::Imports))
             .collect();
         assert_eq!(import_edges.len(), 2);
-        assert!(import_edges
-            .iter()
-            .all(|e| e.from == "php:File:f.php"));
+        assert!(import_edges.iter().all(|e| e.from == "php:File:f.php"));
     }
 
     #[test]

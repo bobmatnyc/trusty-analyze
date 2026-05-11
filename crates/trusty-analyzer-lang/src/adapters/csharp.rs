@@ -19,7 +19,7 @@
 //! extraction, qualified IDs, call scoping, dedup, `using` imports.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -324,9 +324,7 @@ fn callee_name(call: Node, src: &[u8]) -> Option<String> {
     let fun = call.child_by_field_name("function")?;
     match fun.kind() {
         "identifier" => Some(node_text(fun, src)),
-        "member_access_expression" => fun
-            .child_by_field_name("name")
-            .map(|p| node_text(p, src)),
+        "member_access_expression" => fun.child_by_field_name("name").map(|p| node_text(p, src)),
         "generic_name" => {
             if let Some(n) = fun.child_by_field_name("name") {
                 Some(node_text(n, src))

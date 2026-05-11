@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/trusty-common",
+    "crates/trusty-analyzer-types",
     "crates/trusty-analyzer-core",
     "crates/trusty-analyzer-lang",
     "crates/trusty-embedder",
@@ -9,6 +9,16 @@ members = [
     ".",
 ]
 resolver = "2"
+
+# ── Shared trusty-* crates (from the trusty-common repo) ──────────────────
+# Why: consolidates port-binding, daemon address files, OpenRouter client,
+# and (optionally) the shared axum server middleware. Local checkouts are
+# wired in via [patch.crates-io] below for development without round-trips
+# through crates.io publishing.
+#
+# Note: the *local* `trusty-analyzer-types` crate (formerly named
+# `trusty-common`) holds analyzer-specific types and is unrelated to the
+# shared `trusty-common` crate published from the trusty-common repo.
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -27,6 +37,20 @@ clap = { version = "4", features = ["derive", "env"] }
 redb = "2.6"
 dashmap = "5"
 
+# Shared trusty-* crates (published from the trusty-common repo).
+#
+# Note: this workspace also contains a *local* crate named `trusty-embedder`
+# (analyzer-specific, published from this repo). The shared embedder
+# (`trusty-embedder` from the trusty-common repo) is intentionally NOT added
+# here to avoid a name collision; if a future task needs it, expose it
+# through a renamed package alias.
+trusty-common = "0.1.2"
+
+# Local development override: point at the sibling trusty-common checkout
+# so changes there flow straight into this workspace without a publish cycle.
+[patch.crates-io]
+trusty-common = { path = "../trusty-common/crates/trusty-common" }
+
 [package]
 name = "trusty-analyzer"
 version = "0.1.0"
@@ -39,7 +63,7 @@ name = "trusty-analyzer"
 path = "src/main.rs"
 
 [dependencies]
-trusty-common = { path = "crates/trusty-common" }
+trusty-analyzer-types = { path = "crates/trusty-analyzer-types" }
 trusty-analyzer-core = { path = "crates/trusty-analyzer-core" }
 trusty-analyzer-service = { path = "crates/trusty-analyzer-service" }
 trusty-analyzer-mcp = { path = "crates/trusty-analyzer-mcp" }

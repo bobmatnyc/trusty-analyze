@@ -9,7 +9,7 @@
 //! Test: `js_analyzer_extracts_function` asserts a `function hello() {}`
 //! snippet produces a Function node tagged `language = "javascript"`.
 
-use trusty_common::CodeChunk;
+use trusty_analyzer_types::CodeChunk;
 
 use crate::adapters::typescript::analyze_with_grammar;
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
@@ -46,7 +46,7 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use trusty_common::{KgNode, KgNodeKind};
+    use trusty_analyzer_types::{KgNode, KgNodeKind};
 
     fn make_chunk(content: &str) -> CodeChunk {
         CodeChunk {

@@ -24,7 +24,7 @@
 //! method.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -294,8 +294,7 @@ fn walk(root: Node, src: &[u8], chunk: &CodeChunk, graph: &mut KgGraph) {
                         continue;
                     };
                     let name = node_text(name_node, src);
-                    let n =
-                        make_node(KgNodeKind::Field, &name, chunk, child, pub_, doc.clone());
+                    let n = make_node(KgNodeKind::Field, &name, chunk, child, pub_, doc.clone());
                     let id = n.id.clone();
                     graph.nodes.push(n);
                     graph.edges.push(KgEdge {
@@ -580,7 +579,8 @@ mod tests {
     #[test]
     fn java_extracts_field() {
         let a = JavaAnalyzer::new();
-        let c = make_chunk("public class Foo {\n    private int count;\n    public String name;\n}\n");
+        let c =
+            make_chunk("public class Foo {\n    private int count;\n    public String name;\n}\n");
         let r = a.analyze_chunks(&[c]);
         let fields: Vec<&KgNode> = r
             .graph

@@ -24,7 +24,7 @@
 //! methods, modules, call extraction, deduplication, and require imports.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -120,12 +120,7 @@ fn name_of(node: Node, src: &[u8]) -> Option<String> {
     node.child_by_field_name("name").map(|n| node_text(n, src))
 }
 
-fn make_simple_node(
-    kind: KgNodeKind,
-    name: &str,
-    chunk: &CodeChunk,
-    ast: Node,
-) -> KgNode {
+fn make_simple_node(kind: KgNodeKind, name: &str, chunk: &CodeChunk, ast: Node) -> KgNode {
     let start = (chunk.start_line as u32).saturating_add(ast.start_position().row as u32);
     let end = (chunk.start_line as u32).saturating_add(ast.end_position().row as u32);
     let kind_str = format!("{kind:?}");
@@ -157,12 +152,7 @@ fn make_simple_node(
 /// the bare name (top-level `def`).
 /// Test: `ruby_extracts_class_methods_with_qualified_ids`,
 /// `ruby_singleton_method_uses_class_qualified_name`.
-fn make_method_node(
-    class_name: &str,
-    name: &str,
-    chunk: &CodeChunk,
-    ast: Node,
-) -> KgNode {
+fn make_method_node(class_name: &str, name: &str, chunk: &CodeChunk, ast: Node) -> KgNode {
     let start = (chunk.start_line as u32).saturating_add(ast.start_position().row as u32);
     let end = (chunk.start_line as u32).saturating_add(ast.end_position().row as u32);
     let qualified = if class_name.is_empty() {
@@ -583,8 +573,7 @@ mod tests {
     #[test]
     fn ruby_adapter_extracts_call_edges() {
         let a = RubyAnalyzer::new();
-        let src =
-            "class Worker\n  def run\n    helper()\n    other.method()\n  end\nend\n";
+        let src = "class Worker\n  def run\n    helper()\n    other.method()\n  end\nend\n";
         let r = a.analyze_chunks(&[make_chunk(src)]);
         let calls: Vec<&KgEdge> = r
             .graph
@@ -666,9 +655,7 @@ mod tests {
             .filter(|e| matches!(e.kind, KgEdgeKind::Imports))
             .collect();
         assert_eq!(import_edges.len(), 2);
-        assert!(import_edges
-            .iter()
-            .all(|e| e.from == "ruby:File:f.rb"));
+        assert!(import_edges.iter().all(|e| e.from == "ruby:File:f.rb"));
     }
 
     #[test]

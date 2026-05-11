@@ -12,7 +12,7 @@
 //! Test: covers cyclomatic counting, grade thresholds, and `LongFunction`
 //! smell detection.
 
-use trusty_common::complexity::{CodeSmell, ComplexityGrade, ComplexityMetrics};
+use trusty_analyzer_types::complexity::{CodeSmell, ComplexityGrade, ComplexityMetrics};
 
 /// Threshold for `LongFunction`: > 50 newlines in the chunk content.
 const LONG_FUNCTION_THRESHOLD: usize = 50;

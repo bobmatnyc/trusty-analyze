@@ -1,6 +1,6 @@
 //! Analysis primitives for trusty-analyzer.
 //!
-//! Operates on `trusty_common::CodeChunk` corpora fetched from the trusty-search
+//! Operates on `trusty_analyzer_types::CodeChunk` corpora fetched from the trusty-search
 //! daemon over HTTP. No direct database access — the search daemon is the
 //! authoritative source of chunk data.
 //!

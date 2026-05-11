@@ -19,7 +19,7 @@
 //! Test: see the `tests` module.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+use trusty_analyzer_types::{CodeChunk, KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
 use crate::lang::{LanguageAnalyzer, StaticAnalysisResult};
 
@@ -474,7 +474,8 @@ mod tests {
     #[test]
     fn swift_call_edges_scoped_and_deduped() {
         let a = SwiftAnalyzer::new();
-        let src = "class Foo {\n  func greet() {\n    hello()\n    hello()\n    obj.method()\n  }\n}\n";
+        let src =
+            "class Foo {\n  func greet() {\n    hello()\n    hello()\n    obj.method()\n  }\n}\n";
         let r = a.analyze_chunks(&[make_chunk(src, "f.swift")]);
         let calls: Vec<&KgEdge> = r
             .graph
@@ -494,11 +495,7 @@ mod tests {
             hello_edges[0].weight
         );
         let method_edges: Vec<_> = calls.iter().filter(|e| e.to.ends_with(":method")).collect();
-        assert_eq!(
-            method_edges.len(),
-            1,
-            "expected one method edge: {calls:?}"
-        );
+        assert_eq!(method_edges.len(), 1, "expected one method edge: {calls:?}");
         assert!(
             calls
                 .iter()

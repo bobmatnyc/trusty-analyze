@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 
-use trusty_common::{KgEdge, KgGraph, KgNode};
+use trusty_analyzer_types::{KgEdge, KgGraph, KgNode};
 
 /// Merge duplicate nodes (same language + kind + qualified_name) and rewire
 /// edges. Returns a new graph with unique nodes and updated edges.
@@ -133,7 +133,7 @@ pub fn link(graph: KgGraph) -> KgGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use trusty_common::{KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
+    use trusty_analyzer_types::{KgEdge, KgEdgeKind, KgGraph, KgNode, KgNodeKind};
 
     #[test]
     fn merge_deduplicates_nodes_with_same_qualified_name() {

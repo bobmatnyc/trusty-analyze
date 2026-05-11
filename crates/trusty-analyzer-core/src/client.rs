@@ -7,7 +7,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use trusty_common::CodeChunk;
+use trusty_analyzer_types::CodeChunk;
 
 /// Summary of one registered index, as returned by `GET /indexes`.
 #[derive(Debug, Clone, Serialize, Deserialize)]

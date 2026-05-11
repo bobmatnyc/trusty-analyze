@@ -16,7 +16,7 @@
 //! no-branch function, deep nesting, and the smart dispatcher.
 
 use tree_sitter::{Node, Parser};
-use trusty_common::complexity::{CodeSmell, ComplexityGrade, ComplexityMetrics};
+use trusty_analyzer_types::complexity::{CodeSmell, ComplexityGrade, ComplexityMetrics};
 
 /// Threshold for `LongFunction`: > 50 lines spanned by the function node.
 const LONG_FUNCTION_THRESHOLD: usize = 50;

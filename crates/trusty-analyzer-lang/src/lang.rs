@@ -11,7 +11,7 @@
 //! Test: `LanguageAnalyzer::supports` default impl is covered by each
 //! adapter's tests.
 
-use trusty_common::{CodeChunk, KgGraph};
+use trusty_analyzer_types::{CodeChunk, KgGraph};
 
 /// Result of static analysis on a set of chunks.
 #[derive(Debug, Default)]

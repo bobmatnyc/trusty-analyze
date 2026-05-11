@@ -67,10 +67,7 @@ mod tests {
     fn bow_embedder_different_texts_differ() {
         let e = BowEmbedder::default();
         let vecs = e
-            .embed_batch(&[
-                "struct Foo { x: i32 }",
-                "fn main() { println!(\"hi\") }",
-            ])
+            .embed_batch(&["struct Foo { x: i32 }", "fn main() { println!(\"hi\") }"])
             .unwrap();
         let dot: f32 = vecs[0].iter().zip(&vecs[1]).map(|(a, b)| a * b).sum();
         assert!(dot < 0.99, "distinct texts produced near-identical vectors");

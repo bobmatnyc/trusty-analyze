@@ -6,18 +6,18 @@
 #   - Repository dispatch (type: publish) from trusty-common's publish workflow
 #
 # Cross-repo dependency:
-#   trusty-common (vendored here) and trusty-embedder are analyzer-specific
-#   crates distinct from the ones in the trusty-common repo.
-#   All crates in this workspace are published from this repo.
+#   trusty-analyzer-types and trusty-embedder are analyzer-specific crates
+#   distinct from the shared `trusty-common` published from the trusty-common
+#   repo. All crates in this workspace are published from this repo.
 #
 # Publish order (dependency-first within workspace):
-#   1. trusty-common          — no intra-workspace deps
-#   2. trusty-analyzer-lang   — depends on trusty-common (local)
-#   3. trusty-analyzer-core   — depends on trusty-common + trusty-analyzer-lang
-#   4. trusty-embedder        — depends on trusty-analyzer-core
-#   5. trusty-analyzer-service — depends on trusty-common + trusty-analyzer-core + trusty-analyzer-lang + trusty-embedder
-#   6. trusty-analyzer-mcp    — depends on trusty-common + trusty-analyzer-core
-#   7. trusty-analyzer (bin)  — depends on all crates above
+#   1. trusty-analyzer-types   — no intra-workspace deps
+#   2. trusty-analyzer-lang    — depends on trusty-analyzer-types (local)
+#   3. trusty-analyzer-core    — depends on trusty-analyzer-types + trusty-analyzer-lang
+#   4. trusty-embedder         — depends on trusty-analyzer-core
+#   5. trusty-analyzer-service — depends on trusty-analyzer-types + trusty-analyzer-core + trusty-analyzer-lang + trusty-embedder + shared trusty-common (crates.io)
+#   6. trusty-analyzer-mcp     — depends on trusty-analyzer-types + trusty-analyzer-core
+#   7. trusty-analyzer (bin)   — depends on all crates above
 #
 # Required repository secret:
 #   CARGO_REGISTRY_TOKEN — crates.io API token with publish scope.
@@ -71,15 +71,15 @@ jobs:
       # and tested above so this is safe and saves ~5 min of CI time.
       # Dry-run path: passes --dry-run so nothing is actually uploaded.
 
-      - name: Publish trusty-common
+      - name: Publish trusty-analyzer-types
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            cargo publish -p trusty-common --dry-run
+            cargo publish -p trusty-analyzer-types --dry-run
           else
-            cargo publish -p trusty-common --no-verify
+            cargo publish -p trusty-analyzer-types --no-verify
           fi
 
-      - name: Wait for index propagation (trusty-common)
+      - name: Wait for index propagation (trusty-analyzer-types)
         if: ${{ inputs.dry_run != true }}
         run: sleep 20
 
