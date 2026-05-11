@@ -352,6 +352,9 @@ trusty-analyzer/
 │   ├── trusty-analyzer-service/        axum HTTP sidecar (port 7879)
 │   │   └── src/
 │   │       └── lib.rs
+│   ├── trusty-embedder/                 FastEmbedder wrapper (dir name differs from
+│   │   └── src/                         package name: `trusty-analyzer-embedder`)
+│   │       └── lib.rs
 │   └── trusty-analyzer-mcp/            MCP stdio + SSE server
 │       └── src/
 │           └── lib.rs
@@ -564,16 +567,14 @@ Trigger paths:
 | `trusty-analyzer-lang`  | ✅ Yes | Tree-sitter adapters; depends on `-types` |
 | `trusty-analyzer-core`  | ✅ Yes | Analysis primitives; depends on `-types` + `-lang` |
 | `trusty-analyzer-mcp`   | ✅ Yes | MCP server; depends on `-types` + `-core` |
-| `trusty-embedder`       | ❌ No  | Name collision with an unrelated crate already on crates.io |
-| `trusty-analyzer-service` | ❌ No | Depends on `trusty-embedder` |
-| `trusty-analyzer` (bin) | ❌ No  | Depends on `trusty-embedder` |
+| `trusty-analyzer-embedder` | ✅ Yes | Renamed from `trusty-embedder` (commit 0abfdaf); name free on crates.io |
+| `trusty-analyzer-service`  | ✅ Yes | Depends on `trusty-analyzer-embedder` |
+| `trusty-analyzer` (bin)    | ✅ Yes | `cargo install trusty-analyzer` works from crates.io |
 
-> **`trusty-embedder` collision rationale:** an unrelated crate of the same
-> name is already published. Rather than rename our crate (which would ripple
-> through every call site for an entirely workspace-internal type), the crate
-> is marked `publish = false`. Any dependent crate is therefore also
-> `publish = false`. The binary is distributed via GitHub Releases and
-> `cargo install --git https://github.com/bobmatnyc/trusty-analyze` instead.
+> **`trusty-analyzer-embedder` rename:** the crate was originally named
+> `trusty-embedder`, which collided with an unrelated published crate. It was
+> renamed to `trusty-analyzer-embedder` in commit `0abfdaf`, resolving the
+> collision. All seven workspace crates are now publishable to crates.io.
 
 ### Pre-publish validation
 
@@ -582,10 +583,13 @@ publish-clean:
 
 ```bash
 # Dry-run each publishable crate (no upload). Run in dependency order.
-cargo publish -p trusty-analyzer-types --dry-run
-cargo publish -p trusty-analyzer-lang  --dry-run
-cargo publish -p trusty-analyzer-core  --dry-run
-cargo publish -p trusty-analyzer-mcp   --dry-run
+cargo publish -p trusty-analyzer-types     --dry-run
+cargo publish -p trusty-analyzer-lang      --dry-run
+cargo publish -p trusty-analyzer-core      --dry-run
+cargo publish -p trusty-analyzer-mcp       --dry-run
+cargo publish -p trusty-analyzer-embedder  --dry-run
+cargo publish -p trusty-analyzer-service   --dry-run
+cargo publish -p trusty-analyzer           --dry-run
 ```
 
 Note: dry-runs require dependencies to already be published on crates.io at
