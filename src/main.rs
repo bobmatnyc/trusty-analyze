@@ -16,6 +16,9 @@ use trusty_analyzer::embedder::{BowEmbedder, Embedder, NeuralEmbedder};
 use trusty_analyzer::mcp::AnalyzerMcpServer;
 use trusty_analyzer::service::{serve, AnalyzerAppState, DEFAULT_PORT};
 
+mod commands;
+use commands::service::{run_service_action, ServiceAction as ServiceActionEnum};
+
 #[derive(Parser, Debug)]
 #[command(
     name = "trusty-analyzer",
@@ -47,6 +50,9 @@ struct Cli {
 enum Cmd {
     /// Run the HTTP sidecar daemon.
     Serve {
+        /// Run in foreground (used by launchd service).
+        #[arg(long, help = "Run in foreground (used by launchd service)")]
+        foreground: bool,
         /// Starting port (auto-detect upward if busy). Defaults to 7879.
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
@@ -101,6 +107,29 @@ enum Cmd {
         #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
         port: u16,
     },
+    /// Manage the trusty-analyzer background service (macOS launchd).
+    ///
+    /// Installs a LaunchAgent plist at
+    /// `~/Library/LaunchAgents/com.trusty.trusty-analyzer.plist` that runs the
+    /// daemon in the foreground under launchd supervision. Not supported on
+    /// Linux / Windows — the subcommand exits 1 with a clear message.
+    Service {
+        #[command(subcommand)]
+        action: ServiceSubcommand,
+    },
+}
+
+/// Subcommands for `trusty-analyzer service` (macOS launchd integration).
+#[derive(Subcommand, Debug)]
+enum ServiceSubcommand {
+    /// Install and start as a launchd service
+    Install,
+    /// Stop and uninstall the service
+    Uninstall,
+    /// Show service status
+    Status,
+    /// Tail service logs
+    Logs,
 }
 
 #[derive(Subcommand, Debug)]
@@ -140,6 +169,7 @@ async fn main() -> Result<()> {
 
     match cli.cmd {
         Cmd::Serve {
+            foreground: _,
             port,
             mcp,
             mcp_port,
@@ -347,6 +377,15 @@ async fn main() -> Result<()> {
             println!("Opening {url}");
             open::that(&url).with_context(|| format!("open {url} in browser"))?;
             Ok(())
+        }
+        Cmd::Service { action } => {
+            let action = match action {
+                ServiceSubcommand::Install => ServiceActionEnum::Install,
+                ServiceSubcommand::Uninstall => ServiceActionEnum::Uninstall,
+                ServiceSubcommand::Status => ServiceActionEnum::Status,
+                ServiceSubcommand::Logs => ServiceActionEnum::Logs,
+            };
+            run_service_action(action)
         }
     }
 }
