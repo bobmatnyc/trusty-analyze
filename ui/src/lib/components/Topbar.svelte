@@ -1,34 +1,60 @@
 <script>
   /*
-   * Why: Breadcrumb + daemon-status header. The status dot reflects whether
-   * trusty-search (the hard runtime dependency) is reachable from the
-   * analyzer.
-   * What: Renders crumbs derived from the current route, then a right-side
-   * cluster with the reachability dot + version badge.
-   * Test: Stop trusty-search, refresh /health, confirm dot turns red.
+   * Why: Sticky header providing route breadcrumbs, the global index picker,
+   * and the daemon-health pill (status dot + search-reachable + version).
+   * What: Renders crumbs derived from the current route on the left; on the
+   * right, a <select> for choosing the active index (persisted via state) and
+   * a colored health pill.
+   * Test: Stop trusty-search, refresh /health, confirm pill turns red.
    */
-  import { getHealth } from '../state.svelte.js';
+  import {
+    getHealth,
+    getIndexes,
+    getSelectedIndex,
+    setSelectedIndex,
+    refreshQuality,
+    refreshHotspots,
+    refreshSmells,
+    refreshRefactors,
+    refreshClusters,
+    getSseConnected
+  } from '../state.svelte.js';
   import { getRoute } from '../router.svelte.js';
 
   let health = $derived(getHealth());
+  let indexes = $derived(getIndexes());
+  let selected = $derived(getSelectedIndex());
   let route = $derived(getRoute());
+  let sseOn = $derived(getSseConnected());
 
   let crumbs = $derived.by(() => {
     const segs = route.segments;
     if (segs.length === 0) return ['Dashboard'];
-    if (segs[0] === 'indexes' || segs[0] === 'index') {
-      const parts = ['Indexes'];
-      if (segs.length > 1) parts.push(segs[1]);
-      return parts;
-    }
-    if (segs[0] === 'smells') return ['Smells'];
-    if (segs[0] === 'facts') return ['Facts'];
-    if (segs[0] === 'config') return ['Config'];
-    return ['Dashboard'];
+    const head = segs[0];
+    const map = {
+      complexity: 'Complexity',
+      smells: 'Smells',
+      refactors: 'Refactors',
+      clusters: 'Clusters',
+      facts: 'Facts'
+    };
+    return [map[head] || 'Dashboard'];
   });
 
-  let healthy = $derived(health && health.status === 'ok');
-  let searchReachable = $derived(health && health.search_reachable === true);
+  let healthy = $derived(!!health && health.status === 'ok');
+  let searchReachable = $derived(!!health && health.search_reachable === true);
+
+  function onPickIndex(e) {
+    const id = e.target.value;
+    setSelectedIndex(id);
+    if (!id) return;
+    // Eagerly refresh the slices most views care about.
+    refreshQuality(id).catch(() => {});
+    refreshHotspots(id).catch(() => {});
+    refreshSmells(id).catch(() => {});
+    refreshRefactors(id).catch(() => {});
+    refreshClusters(id).catch(() => {});
+  }
 </script>
 
 <header class="topbar">
@@ -39,12 +65,34 @@
     {/each}
   </div>
   <div class="actions">
-    <div class="status" title={searchReachable ? 'trusty-search reachable' : 'trusty-search unreachable'}>
-      <span class="dot" class:on={searchReachable} class:off={health && !searchReachable}></span>
-      <span class="text-xs text-muted">search</span>
-    </div>
+    <select class="select index-picker" value={selected} onchange={onPickIndex}>
+      {#if indexes.length === 0}
+        <option value="">no indexes</option>
+      {:else}
+        <option value="" disabled>— select index —</option>
+        {#each indexes as idx}
+          {@const id = typeof idx === 'string' ? idx : idx.id}
+          {@const label = typeof idx === 'string' ? idx : idx.name || idx.id}
+          <option value={id}>{label}</option>
+        {/each}
+      {/if}
+    </select>
+
+    <span class="pill" title="Server-Sent Events stream">
+      <span class="dot" class:ok={sseOn}></span>
+      sse
+    </span>
+
+    <span
+      class="pill"
+      title={searchReachable ? 'trusty-search reachable' : 'trusty-search unreachable'}
+    >
+      <span class="dot" class:ok={searchReachable} class:err={health && !searchReachable}></span>
+      search
+    </span>
+
     {#if health && healthy}
-      <span class="badge badge-success">v{health.version || '?'}</span>
+      <span class="badge badge-success">v{health.version || 'ok'}</span>
     {:else if health}
       <span class="badge badge-danger">unreachable</span>
     {:else}
@@ -88,22 +136,11 @@
     align-items: center;
     gap: 12px;
   }
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--trusty-text-muted);
-    display: inline-block;
-  }
-  .dot.on {
-    background: var(--trusty-success);
-  }
-  .dot.off {
-    background: var(--trusty-danger);
+  .index-picker {
+    width: auto;
+    min-width: 200px;
+    max-width: 320px;
+    padding: 6px 10px;
+    font-size: var(--trusty-fs-sm);
   }
 </style>

@@ -1,45 +1,68 @@
 /*
- * Trusty Suite design tokens.
+ * trusty-analyzer dashboard design tokens — dark theme.
  *
- * Why: A shared palette + typography across trusty-memory, trusty-search,
- * and other Trusty tools. Reuse this file (or import these custom properties)
- * in sibling projects to keep the visual identity coherent.
- * What: CSS custom properties scoped to :root.
- * Test: Inspect any .trusty-* class in DevTools and confirm values resolve.
+ * Why: trusty-analyzer is a developer-facing tool; the dark Catppuccin-inspired
+ * palette pairs well with code-heavy views (treemaps, complexity heatmaps,
+ * smell counts) and is consistent with the trusty-search sidebar palette.
+ * What: CSS custom properties scoped to :root. We keep --trusty-* names from
+ * the trusty-memory shell so the existing global.css class system continues to
+ * work; the values are rebased onto the dark palette.
+ * Test: Inspect any .card or .stat in DevTools and confirm values resolve.
  */
 :root {
-  /* Sidebar (dark) */
-  --trusty-sidebar-bg: #1e1e2e;
-  --trusty-sidebar-text: #cdd6f4;
-  --trusty-sidebar-muted: #7f849c;
-  --trusty-sidebar-accent: #89b4fa;
-  --trusty-sidebar-active: #313244;
-  --trusty-sidebar-border: #313244;
+  /* Raw dark palette (per spec) */
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --surface-hover: #45475a;
+  --border: #45475a;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --muted: #7f849c;
 
-  /* Content (light) */
-  --trusty-content-bg: #f8f9fc;
-  --trusty-card-bg: #ffffff;
-  --trusty-border: #e2e8f0;
-  --trusty-border-strong: #cbd5e1;
+  --red: #f38ba8;
+  --green: #a6e3a1;
+  --yellow: #f9e2af;
+  --orange: #fab387;
+  --blue: #89b4fa;
+  --mauve: #cba6f7;
+  --teal: #94e2d5;
 
-  /* Text */
-  --trusty-text-primary: #1e293b;
-  --trusty-text-secondary: #475569;
-  --trusty-text-muted: #64748b;
-  --trusty-text-inverse: #ffffff;
+  /* Grade colors (per spec) */
+  --grade-a: #a6e3a1; /* green */
+  --grade-b: #94e2d5; /* teal */
+  --grade-c: #f9e2af; /* yellow */
+  --grade-d: #fab387; /* orange */
+  --grade-f: #f38ba8; /* red */
 
-  /* Accents */
-  --trusty-accent: #6366f1;
-  --trusty-accent-hover: #4f46e5;
-  --trusty-accent-soft: #eef2ff;
-  --trusty-success: #22c55e;
-  --trusty-success-soft: #dcfce7;
-  --trusty-warning: #f59e0b;
-  --trusty-warning-soft: #fef3c7;
-  --trusty-danger: #ef4444;
-  --trusty-danger-soft: #fee2e2;
-  --trusty-info: #0ea5e9;
-  --trusty-info-soft: #e0f2fe;
+  /* Trusty shell alias mapping (used by global.css from trusty-memory pattern) */
+  --trusty-sidebar-bg: #181825;
+  --trusty-sidebar-text: var(--text);
+  --trusty-sidebar-muted: var(--muted);
+  --trusty-sidebar-accent: var(--blue);
+  --trusty-sidebar-active: var(--surface);
+  --trusty-sidebar-border: #11111b;
+
+  --trusty-content-bg: var(--bg);
+  --trusty-card-bg: var(--surface);
+  --trusty-border: var(--border);
+  --trusty-border-strong: var(--surface-hover);
+
+  --trusty-text-primary: var(--text);
+  --trusty-text-secondary: var(--subtext);
+  --trusty-text-muted: var(--muted);
+  --trusty-text-inverse: #11111b;
+
+  --trusty-accent: var(--blue);
+  --trusty-accent-hover: #74a8f5;
+  --trusty-accent-soft: rgba(137, 180, 250, 0.15);
+  --trusty-success: var(--green);
+  --trusty-success-soft: rgba(166, 227, 161, 0.15);
+  --trusty-warning: var(--yellow);
+  --trusty-warning-soft: rgba(249, 226, 175, 0.15);
+  --trusty-danger: var(--red);
+  --trusty-danger-soft: rgba(243, 139, 168, 0.15);
+  --trusty-info: var(--teal);
+  --trusty-info-soft: rgba(148, 226, 213, 0.15);
 
   /* Typography */
   --trusty-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -55,9 +78,9 @@
   --trusty-radius-sm: 4px;
   --trusty-radius: 8px;
   --trusty-radius-lg: 12px;
-  --trusty-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --trusty-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --trusty-shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+  --trusty-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --trusty-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --trusty-shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.4);
 
   /* Layout */
   --trusty-sidebar-width: 240px;

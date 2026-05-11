@@ -1,48 +1,71 @@
 <script>
   /*
-   * Why: Shell layout that mirrors trusty-search — fixed dark sidebar on
-   * the left, sticky topbar, and a hash-routed content pane that renders one
-   * of five views.
-   * What: Bootstraps the centralized state (health + indexes), then
-   * dispatches the route to Dashboard / Indexes / Smells / Facts / Config.
-   * Test: Open /ui in a browser, verify nav items render and the
-   * version badge turns green once /health responds.
+   * Why: Shell layout that mirrors trusty-memory — fixed dark sidebar on
+   * the left, sticky topbar, hash-routed content pane that renders one of
+   * six views, plus a long-lived SSE connection that keeps every pane fresh.
+   * What: Bootstraps the centralized state (health + indexes), opens the
+   * /sse stream, and dispatches the route to Dashboard / Complexity /
+   * Smells / Refactors / Clusters / Facts.
+   * Test: Open /ui in a browser, verify nav items render and the health
+   * pill turns green once /health responds.
    */
   import Sidebar from './lib/components/Sidebar.svelte';
   import Topbar from './lib/components/Topbar.svelte';
   import Dashboard from './lib/views/Dashboard.svelte';
-  import Indexes from './lib/views/Indexes.svelte';
+  import Complexity from './lib/views/Complexity.svelte';
   import Smells from './lib/views/Smells.svelte';
+  import Refactors from './lib/views/Refactors.svelte';
+  import Clusters from './lib/views/Clusters.svelte';
   import Facts from './lib/views/Facts.svelte';
-  import Config from './lib/views/Config.svelte';
   import { getRoute } from './lib/router.svelte.js';
-  import { refreshHealth, refreshIndexes } from './lib/state.svelte.js';
-  import { onMount } from 'svelte';
+  import {
+    refreshHealth,
+    refreshIndexes,
+    initEventStream
+  } from './lib/state.svelte.js';
+  import { onDestroy, onMount } from 'svelte';
 
   let bootError = $state(null);
+  let eventSource = null;
 
-  onMount(() => {
-    refreshHealth().catch((e) => {
+  onMount(async () => {
+    try {
+      await Promise.all([refreshHealth(), refreshIndexes()]);
+    } catch (e) {
       bootError = e.message || String(e);
-    });
-    refreshIndexes().catch(() => {});
-    // Poll /health every 10s so the version badge stays live.
+    }
+    // Poll /health every 10s so the health pill stays live even if SSE drops.
     const t = setInterval(() => {
       refreshHealth().catch(() => {});
     }, 10_000);
+    // Open the live event stream so views auto-refresh on analyzer events.
+    try {
+      eventSource = initEventStream();
+    } catch {
+      /* SSE optional; polling fallback covers /health */
+    }
     return () => clearInterval(t);
+  });
+
+  onDestroy(() => {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
   });
 
   let route = $derived(getRoute());
 
   let view = $derived.by(() => {
     const segs = route.segments;
-    if (segs.length === 0) return { kind: 'dashboard' };
-    if (segs[0] === 'indexes' || segs[0] === 'index') return { kind: 'indexes' };
-    if (segs[0] === 'smells') return { kind: 'smells' };
-    if (segs[0] === 'facts') return { kind: 'facts' };
-    if (segs[0] === 'config') return { kind: 'config' };
-    return { kind: 'dashboard' };
+    if (segs.length === 0) return 'dashboard';
+    const head = segs[0];
+    if (head === 'complexity') return 'complexity';
+    if (head === 'smells') return 'smells';
+    if (head === 'refactors') return 'refactors';
+    if (head === 'clusters') return 'clusters';
+    if (head === 'facts') return 'facts';
+    return 'dashboard';
   });
 </script>
 
@@ -61,20 +84,22 @@
             <p class="text-muted text-sm">
               Make sure trusty-analyzer is running with
               <code>trusty-analyzer serve</code> and that trusty-search is
-              reachable.
+              reachable on port 7878.
             </p>
           </div>
         </div>
-      {:else if view.kind === 'dashboard'}
+      {:else if view === 'dashboard'}
         <Dashboard />
-      {:else if view.kind === 'indexes'}
-        <Indexes />
-      {:else if view.kind === 'smells'}
+      {:else if view === 'complexity'}
+        <Complexity />
+      {:else if view === 'smells'}
         <Smells />
-      {:else if view.kind === 'facts'}
+      {:else if view === 'refactors'}
+        <Refactors />
+      {:else if view === 'clusters'}
+        <Clusters />
+      {:else if view === 'facts'}
         <Facts />
-      {:else if view.kind === 'config'}
-        <Config />
       {/if}
     </div>
   </div>

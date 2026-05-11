@@ -1,196 +1,196 @@
 <script>
   /*
-   * Why: Landing page surfaces the four most important static-analysis
-   * metrics for the currently selected index plus a quick look at the
-   * top-N complexity hotspots.
-   * What: Renders four stat cards (Quality grade, Hotspots count, Smells
-   * count, Avg complexity) and a hotspots table. Auto-refreshes when the
-   * selected index changes.
-   * Test: Select an index on the Indexes page, return to Dashboard, confirm
-   * stats populate.
+   * Why: Operator's at-a-glance health view — health pill, index picker
+   * context, quality card (big letter grade + summary stats), and a top-10
+   * complexity hotspot sidebar so the worst code is one click away.
+   * What: Reads from centralized state; on index change refreshes quality
+   * and hotspots. Renders status stats, quality grade card, hotspots list.
+   * Test: Select an index in the topbar picker, observe the grade letter
+   * and hotspot list re-render without page reload.
    */
-  import { onMount } from 'svelte';
   import {
+    getHealth,
+    getIndexes,
     getSelectedIndex,
     getQuality,
     getHotspots,
     refreshQuality,
-    refreshHotspots,
-    refreshSmells
+    refreshHotspots
   } from '../state.svelte.js';
   import { navigate } from '../router.svelte.js';
 
+  let health = $derived(getHealth());
+  let indexes = $derived(getIndexes());
   let selected = $derived(getSelectedIndex());
   let quality = $derived(getQuality());
   let hotspots = $derived(getHotspots());
-  let loadError = $state(null);
-  let loading = $state(false);
 
-  async function loadAll(id) {
-    if (!id) return;
-    loadError = null;
-    loading = true;
-    try {
-      await Promise.all([
-        refreshQuality(id),
-        refreshHotspots(id, 10),
-        refreshSmells(id)
-      ]);
-    } catch (e) {
-      loadError = e.message || String(e);
-    } finally {
-      loading = false;
-    }
-  }
-
-  onMount(() => {
-    if (selected) loadAll(selected);
-  });
-
-  // Re-load whenever the selected index changes after mount.
-  let lastLoaded = $state('');
+  // Auto-load quality + hotspots when the active index changes.
   $effect(() => {
-    if (selected && selected !== lastLoaded) {
-      lastLoaded = selected;
-      loadAll(selected);
-    }
+    if (!selected) return;
+    refreshQuality(selected).catch(() => {});
+    refreshHotspots(selected, 10).catch(() => {});
   });
 
-  function gradeClass(grade) {
-    switch (grade) {
-      case 'A':
-        return 'grade-a';
-      case 'B':
-        return 'grade-b';
-      case 'C':
-        return 'grade-c';
-      case 'D':
-        return 'grade-d';
-      case 'F':
-        return 'grade-f';
-      default:
-        return 'grade-na';
-    }
-  }
-
-  function fmtNum(n, digits = 1) {
-    if (n === null || n === undefined) return '—';
-    return Number(n).toFixed(digits);
-  }
+  let grade = $derived(quality?.grade || '?');
+  let gradeClass = $derived('grade-' + (grade || '?').toString().toLowerCase());
+  let top10 = $derived(hotspots.slice(0, 10));
 </script>
 
-<div>
-  <h1 class="page-title">Dashboard</h1>
+<h1 class="page-title">Dashboard</h1>
 
-  {#if !selected}
-    <div class="card">
-      <div class="card-body empty">
-        <p>No index selected.</p>
-        <button class="btn btn-primary" onclick={() => navigate('/indexes')}>
-          Browse Indexes
-        </button>
-      </div>
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat-label">Health</div>
+    <div class="stat-value" style="font-size: 1.4rem; line-height: 1.4">
+      {#if health?.status === 'ok'}
+        <span class="badge badge-success">online</span>
+      {:else}
+        <span class="badge badge-danger">offline</span>
+      {/if}
     </div>
-  {:else}
-    {#if loadError}
-      <div class="card mb-4" style="border-color: var(--trusty-danger)">
-        <div class="card-body" style="color: var(--trusty-danger)">
-          {loadError}
-        </div>
-      </div>
-    {/if}
-
-    <div class="stat-grid">
-      <div class="stat">
-        <div class="stat-label">Quality Grade</div>
-        <div class="stat-value grade {gradeClass(quality?.grade)}">
-          {quality?.grade || '—'}
-        </div>
-        <div class="stat-meta">overall</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Hotspots</div>
-        <div class="stat-value">{hotspots?.length ?? '—'}</div>
-        <div class="stat-meta">complexity outliers</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Smells</div>
-        <div class="stat-value">{quality?.smell_count ?? '—'}</div>
-        <div class="stat-meta">detected issues</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Avg Complexity</div>
-        <div class="stat-value">{fmtNum(quality?.avg_cyclomatic)}</div>
-        <div class="stat-meta">cyclomatic</div>
-      </div>
+    <div class="stat-meta">
+      search {health?.search_reachable ? 'reachable' : 'unreachable'}
     </div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Indexes</div>
+    <div class="stat-value">{indexes.length}</div>
+    <div class="stat-meta">corpora available</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Active</div>
+    <div class="stat-value" style="font-size: 1.1rem">
+      <span class="text-mono">{selected || '—'}</span>
+    </div>
+    <div class="stat-meta">selected index</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Smells</div>
+    <div class="stat-value">{quality?.smell_count ?? 0}</div>
+    <div class="stat-meta">detected</div>
+  </div>
+</div>
 
-    <div class="card">
-      <div class="card-header">Top 10 Complexity Hotspots</div>
-      <div class="card-body" style="padding: 0">
-        {#if loading}
-          <div class="empty">Loading…</div>
-        {:else if !hotspots || hotspots.length === 0}
-          <div class="empty">No hotspots reported.</div>
-        {:else}
-          <table class="table">
-            <thead>
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">Quality Grade</div>
+    <div class="card-body">
+      {#if !selected}
+        <div class="empty">Select an index in the top bar to load quality metrics.</div>
+      {:else if !quality}
+        <div class="empty">Loading…</div>
+      {:else}
+        <div class="grade-row">
+          <div class="grade-display {gradeClass}">{grade}</div>
+          <div class="grade-meta">
+            <div class="mini-stat">
+              <div class="mini-label">Avg Cyclomatic</div>
+              <div class="mini-value">{Number(quality.avg_cyclomatic ?? 0).toFixed(2)}</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-label">% Grade A</div>
+              <div class="mini-value">
+                {(Number(quality.pct_grade_a ?? 0) * 100).toFixed(1)}<span class="unit">%</span>
+              </div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-label">Smell Count</div>
+              <div class="mini-value">{quality.smell_count ?? 0}</div>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header flex-between">
+      <span>Top Complexity Hotspots</span>
+      <button class="btn btn-sm btn-primary" onclick={() => navigate('/complexity')}>
+        See all
+      </button>
+    </div>
+    <div class="card-body" style="padding: 0">
+      {#if !selected}
+        <div class="empty">No index selected.</div>
+      {:else if top10.length === 0}
+        <div class="empty">No hotspots reported.</div>
+      {:else}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Function</th>
+              <th>File</th>
+              <th>Cyclo</th>
+              <th>Grade</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each top10 as h}
+              {@const m = h.metrics || {}}
+              {@const g = (h.grade || m.grade || '?').toString()}
               <tr>
-                <th>Function</th>
-                <th>File</th>
-                <th>Cyclomatic</th>
-                <th>Grade</th>
+                <td class="text-mono text-xs">{h.function_name || h.symbol || '—'}</td>
+                <td class="text-muted text-xs truncate" style="max-width: 280px">
+                  {h.file || '—'}
+                </td>
+                <td><strong>{m.cyclomatic ?? h.cyclomatic ?? '—'}</strong></td>
+                <td><span class="badge grade-{g.toLowerCase()}">{g}</span></td>
               </tr>
-            </thead>
-            <tbody>
-              {#each hotspots.slice(0, 10) as h}
-                <tr>
-                  <td class="text-mono">{h.symbol || h.function || h.name || '—'}</td>
-                  <td class="text-mono truncate" title={h.file || h.path}>
-                    {h.file || h.path || '—'}
-                  </td>
-                  <td>{h.metrics?.cyclomatic ?? h.cyclomatic ?? '—'}</td>
-                  <td>
-                    <span class="badge {gradeClass(h.metrics?.grade ?? h.grade)}">
-                      {h.metrics?.grade ?? h.grade ?? '—'}
-                    </span>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        {/if}
-      </div>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
   .page-title {
     font-size: var(--trusty-fs-xl);
+    margin: 0 0 var(--trusty-space-5) 0;
     font-weight: 600;
-    margin: 0 0 var(--trusty-space-4) 0;
   }
-  .grade {
-    font-size: 2.5rem;
-    line-height: 1;
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--trusty-space-4);
   }
-  .grade-a {
-    color: var(--trusty-success);
+  @media (max-width: 1100px) {
+    .grid-2 { grid-template-columns: 1fr; }
   }
-  .grade-b {
-    color: var(--trusty-info);
+  .grade-row {
+    display: flex;
+    gap: var(--trusty-space-5);
+    align-items: center;
   }
-  .grade-c {
-    color: var(--trusty-warning);
+  .grade-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--trusty-space-3);
+    flex: 1;
   }
-  .grade-d {
-    color: #f97316;
+  .mini-stat {
+    padding: var(--trusty-space-3);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--trusty-radius);
   }
-  .grade-f {
-    color: var(--trusty-danger);
-  }
-  .grade-na {
+  .mini-label {
+    font-size: var(--trusty-fs-xs);
     color: var(--trusty-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .mini-value {
+    font-size: var(--trusty-fs-lg);
+    font-weight: 700;
+  }
+  .unit {
+    font-size: var(--trusty-fs-xs);
+    color: var(--trusty-text-muted);
+    margin-left: 2px;
   }
 </style>

@@ -14,10 +14,11 @@
 
   const links = [
     { path: '/', label: 'Dashboard', icon: '◇' },
-    { path: '/indexes', label: 'Indexes', icon: '▣' },
+    { path: '/complexity', label: 'Complexity', icon: '▣' },
     { path: '/smells', label: 'Smells', icon: '✦' },
-    { path: '/facts', label: 'Facts', icon: '❖' },
-    { path: '/config', label: 'Config', icon: '⚙' }
+    { path: '/refactors', label: 'Refactors', icon: '⚒' },
+    { path: '/clusters', label: 'Clusters', icon: '◈' },
+    { path: '/facts', label: 'Facts', icon: '❖' }
   ];
 
   function isActive(path) {
@@ -96,7 +97,7 @@
   .brand-title {
     font-weight: 600;
     font-size: 15px;
-    color: var(--trusty-text-inverse);
+    color: var(--text);
   }
   .brand-sub {
     font-size: 11px;

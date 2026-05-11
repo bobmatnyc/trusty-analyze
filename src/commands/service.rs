@@ -74,54 +74,48 @@ fn launchd_plist_path() -> Result<std::path::PathBuf> {
 
 #[cfg(target_os = "macos")]
 fn launchd_log_dir() -> Result<std::path::PathBuf> {
+    // Why: align with trusty-memory by writing a single combined log under
+    // `~/.trusty-analyzer/logs/` instead of `~/Library/Logs/`. Easier to find
+    // and matches the convention shared by every trusty-* daemon.
     let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("could not resolve $HOME"))?;
-    let dir = home.join("Library").join("Logs").join("trusty-analyzer");
+    let dir = home.join(".trusty-analyzer").join("logs");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
 
-/// Render the LaunchAgent plist body. Foreground mode (launchd owns lifecycle).
+/// Render the LaunchAgent plist body. Aligned with trusty-memory's template:
+/// `KeepAlive=true`, `ThrottleInterval=10`, a single combined log file, and
+/// no `--foreground` argument (launchd owns lifecycle, the daemon runs as-is).
 #[cfg(target_os = "macos")]
 fn launchd_plist_body(exe: &std::path::Path, log_dir: &std::path::Path) -> String {
     let exe = exe.display();
-    let stdout = log_dir.join("stdout.log");
-    let stderr = log_dir.join("stderr.log");
+    let log_path = log_dir.join("daemon.log");
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key>
-    <string>{LAUNCHD_LABEL}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{exe}</string>
-        <string>serve</string>
-        <string>--foreground</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <!-- KeepAlive=SuccessfulExit:false means launchd only restarts the daemon
-         on a non-zero exit. Matches the trusty-search service contract so a
-         clean shutdown (SIGTERM → exit 0) does not crash-loop. -->
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
-    <key>ThrottleInterval</key>
-    <integer>30</integer>
-    <key>StandardOutPath</key>
-    <string>{}</string>
-    <key>StandardErrorPath</key>
-    <string>{}</string>
-    <key>ProcessType</key>
-    <string>Interactive</string>
+  <key>Label</key>
+  <string>{LAUNCHD_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{exe}</string>
+    <string>serve</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>{log}</string>
+  <key>StandardErrorPath</key>
+  <string>{log}</string>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
 </dict>
 </plist>
 "#,
-        stdout.display(),
-        stderr.display(),
+        log = log_path.display(),
     )
 }
 
@@ -232,23 +226,20 @@ fn service_status() -> Result<()> {
 fn service_logs() -> Result<()> {
     use std::os::unix::process::CommandExt;
     let log_dir = launchd_log_dir()?;
-    let stdout = log_dir.join("stdout.log");
-    let stderr = log_dir.join("stderr.log");
-    if !stdout.exists() && !stderr.exists() {
+    let log = log_dir.join("daemon.log");
+    if !log.exists() {
         eprintln!(
-            "{} No logs at {} yet — start the service first.",
+            "{} No log at {} yet — start the service first.",
             "·".dimmed(),
-            log_dir.display()
+            log.display()
         );
         return Ok(());
     }
     // Replace the current process with `tail -F` so the user gets a familiar
-    // follow-mode experience (Ctrl-C cleanly stops tail without leaving us in
-    // an ambiguous state) and we don't have to re-implement log rotation.
+    // follow-mode experience and we don't have to re-implement log rotation.
     let err = std::process::Command::new("tail")
         .arg("-F")
-        .arg(&stdout)
-        .arg(&stderr)
+        .arg(&log)
         .exec();
     Err(anyhow::anyhow!("exec tail failed: {err}"))
 }

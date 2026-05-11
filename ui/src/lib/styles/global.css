@@ -56,7 +56,7 @@ pre {
 }
 .btn:hover {
   border-color: var(--trusty-border-strong);
-  background: #f8f9fc;
+  background: var(--surface-hover);
 }
 .btn-primary {
   background: var(--trusty-accent);
@@ -143,10 +143,10 @@ pre {
   text-transform: uppercase;
   font-size: var(--trusty-fs-xs);
   letter-spacing: 0.04em;
-  background: #f8f9fc;
+  background: var(--bg);
 }
 .table tbody tr:hover {
-  background: #f8f9fc;
+  background: var(--surface-hover);
 }
 
 /* Badges */
@@ -176,7 +176,7 @@ pre {
   color: var(--trusty-info);
 }
 .badge-muted {
-  background: #f1f5f9;
+  background: var(--surface-hover);
   color: var(--trusty-text-muted);
 }
 
@@ -344,7 +344,46 @@ pre {
   padding: 1px 6px;
   margin-right: 4px;
   border-radius: var(--trusty-radius-sm);
-  background: #f1f5f9;
+  background: var(--surface-hover);
   color: var(--trusty-text-secondary);
   font-size: var(--trusty-fs-xs);
 }
+
+/* Grade letter — large display in quality card */
+.grade-display {
+  font-size: 4rem;
+  font-weight: 800;
+  line-height: 1;
+  font-family: var(--trusty-mono);
+}
+.grade-a { color: var(--grade-a); }
+.grade-b { color: var(--grade-b); }
+.grade-c { color: var(--grade-c); }
+.grade-d { color: var(--grade-d); }
+.grade-f { color: var(--grade-f); }
+
+/* Severity badges for refactor suggestions */
+.sev-low { background: var(--trusty-info-soft); color: var(--trusty-info); }
+.sev-medium { background: var(--trusty-warning-soft); color: var(--trusty-warning); }
+.sev-high { background: rgba(250, 179, 135, 0.2); color: var(--orange); }
+.sev-critical { background: var(--trusty-danger-soft); color: var(--trusty-danger); }
+
+/* Index picker pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: var(--trusty-fs-xs);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.dot.ok { background: var(--green); }
+.dot.err { background: var(--red); }

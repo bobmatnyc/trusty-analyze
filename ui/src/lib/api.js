@@ -9,8 +9,13 @@
  * Test: Console-call api.health() and confirm shape matches /health.
  */
 
+const BASE =
+  typeof window !== 'undefined' && window.__ANALYZER_BASE__
+    ? window.__ANALYZER_BASE__
+    : '';
+
 async function request(path, opts = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(BASE + path, {
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
     ...opts
   });
@@ -39,8 +44,15 @@ export const api = {
       `/indexes/${encodeURIComponent(id)}/smells${category ? '?category=' + encodeURIComponent(category) : ''}`
     ),
   quality: (id) => request(`/indexes/${encodeURIComponent(id)}/quality`),
-  clusters: (id, k = 8) =>
-    request(`/indexes/${encodeURIComponent(id)}/clusters?k=${k}&method=bow`),
+  refactorSuggestions: (id, { minSeverity = 'low', topK = 20 } = {}) => {
+    const qs = new URLSearchParams({
+      min_severity: minSeverity,
+      top_k: String(topK)
+    });
+    return request(`/indexes/${encodeURIComponent(id)}/refactor-suggestions?${qs}`);
+  },
+  clusters: (id, { k = 8, method = 'bow' } = {}) =>
+    request(`/indexes/${encodeURIComponent(id)}/clusters?k=${k}&method=${method}`),
   listFacts: (subject, predicate) => {
     const qs = new URLSearchParams();
     if (subject) qs.set('subject', subject);
@@ -51,5 +63,5 @@ export const api = {
   upsertFact: (fact) =>
     request('/facts', { method: 'POST', body: JSON.stringify(fact) }),
   deleteFact: (id) =>
-    request(`/facts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    request(`/facts/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };

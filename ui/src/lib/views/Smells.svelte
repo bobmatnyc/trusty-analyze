@@ -1,13 +1,14 @@
 <script>
   /*
-   * Why: Code smells are the actionable surface of the analysis pipeline —
-   * operators want to filter by category and jump to the offending file.
-   * What: Renders a category filter dropdown and a smells table. Calls
-   * /indexes/:id/smells with the optional category query parameter.
-   * Test: Pick a category from the dropdown, confirm table refreshes with
-   * only that category's rows.
+   * Why: Operators need to see which smell categories dominate a corpus and
+   * drill into specific offenders. A bar chart on category counts surfaces
+   * the prevailing problem class at a glance.
+   * What: D3 bar chart of smell-category counts + a filterable detail list.
+   * Test: Select an index, expect bars for each category; click a category
+   * and the list filters to that smell name.
    */
-  import { onMount } from 'svelte';
+  import * as d3 from 'd3';
+  import { onMount, onDestroy, tick } from 'svelte';
   import {
     getSelectedIndex,
     getSmells,
@@ -17,118 +18,200 @@
   let selected = $derived(getSelectedIndex());
   let smells = $derived(getSmells());
   let category = $state('');
-  let loading = $state(false);
-  let error = $state(null);
+  let chartEl = $state(null);
 
-  async function load() {
+  $effect(() => {
     if (!selected) return;
-    loading = true;
-    error = null;
-    try {
-      await refreshSmells(selected, category || undefined);
-    } catch (e) {
-      error = e.message || String(e);
-    } finally {
-      loading = false;
-    }
-  }
-
-  onMount(() => {
-    if (selected) load();
+    refreshSmells(selected, category || undefined).catch(() => {});
   });
 
-  let categories = $derived.by(() => {
-    const set = new Set();
-    for (const s of smells || []) {
-      const c = s.category || s.kind;
-      if (c) set.add(c);
+  /*
+   * Why: API may return one row per chunk with a `smells: [...]` array, or
+   * pre-flattened rows; we normalize to a flat list of {category, chunk}.
+   * What: Returns Array<{ category, chunk }>.
+   * Test: Pass [{ smells: [{ category: 'long_function' }], file: 'a.rs' }]
+   * and expect [{ category: 'long_function', chunk: {...} }].
+   */
+  function flatten(rows) {
+    const out = [];
+    for (const r of rows || []) {
+      if (Array.isArray(r.smells) && r.smells.length) {
+        for (const s of r.smells) {
+          out.push({ category: s.category || s.name || 'unknown', chunk: r, smell: s });
+        }
+      } else if (r.category || r.name) {
+        out.push({ category: r.category || r.name, chunk: r, smell: r });
+      }
     }
-    return Array.from(set).sort();
-  });
-
-  function onCategoryChange(e) {
-    category = e.target.value;
-    load();
+    return out;
   }
+
+  let flat = $derived(flatten(smells));
+  let counts = $derived.by(() => {
+    const m = new Map();
+    for (const f of flat) m.set(f.category, (m.get(f.category) || 0) + 1);
+    return [...m.entries()].map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count);
+  });
+  let filtered = $derived(category ? flat.filter((f) => f.category === category) : flat);
+
+  function renderBars() {
+    if (!chartEl) return;
+    d3.select(chartEl).selectAll('*').remove();
+    const data = counts;
+    if (!data.length) return;
+
+    const width = chartEl.clientWidth || 800;
+    const height = 280;
+    const margin = { top: 16, right: 16, bottom: 60, left: 48 };
+    const innerW = width - margin.left - margin.right;
+    const innerH = height - margin.top - margin.bottom;
+
+    const x = d3.scaleBand().domain(data.map((d) => d.category)).range([0, innerW]).padding(0.2);
+    const y = d3.scaleLinear().domain([0, d3.max(data, (d) => d.count) || 1]).nice().range([innerH, 0]);
+
+    const svg = d3
+      .select(chartEl)
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('viewBox', `0 0 ${width} ${height}`);
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g')
+      .attr('transform', `translate(0,${innerH})`)
+      .call(d3.axisBottom(x))
+      .selectAll('text')
+      .style('fill', 'var(--subtext)')
+      .style('font-size', '11px')
+      .attr('transform', 'rotate(-25)')
+      .attr('text-anchor', 'end')
+      .attr('dx', '-0.4em')
+      .attr('dy', '0.6em');
+
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(5))
+      .selectAll('text')
+      .style('fill', 'var(--subtext)')
+      .style('font-size', '11px');
+
+    g.selectAll('.domain, .tick line').style('stroke', 'var(--border)');
+
+    g.selectAll('rect.bar')
+      .data(data)
+      .join('rect')
+      .attr('class', 'bar')
+      .attr('x', (d) => x(d.category))
+      .attr('y', (d) => y(d.count))
+      .attr('width', x.bandwidth())
+      .attr('height', (d) => innerH - y(d.count))
+      .attr('fill', 'var(--mauve)')
+      .attr('fill-opacity', 0.85)
+      .style('cursor', 'pointer')
+      .on('click', (_e, d) => {
+        category = category === d.category ? '' : d.category;
+      });
+
+    g.selectAll('text.value')
+      .data(data)
+      .join('text')
+      .attr('class', 'value')
+      .attr('x', (d) => x(d.category) + x.bandwidth() / 2)
+      .attr('y', (d) => y(d.count) - 4)
+      .attr('text-anchor', 'middle')
+      .style('fill', 'var(--text)')
+      .style('font-size', '11px')
+      .style('font-weight', '600')
+      .text((d) => d.count);
+  }
+
+  let ro;
+  onMount(async () => {
+    await tick();
+    renderBars();
+    ro = new ResizeObserver(() => renderBars());
+    if (chartEl) ro.observe(chartEl);
+  });
+  onDestroy(() => ro && ro.disconnect());
+
+  $effect(() => {
+    counts;
+    if (chartEl) renderBars();
+  });
 </script>
 
-<div>
-  <h1 class="page-title">Smells</h1>
+<h1 class="page-title">Smells</h1>
 
-  {#if !selected}
-    <div class="card">
-      <div class="card-body empty">No index selected. Choose one from Indexes.</div>
+{#if !selected}
+  <div class="card"><div class="empty">Select an index in the top bar.</div></div>
+{:else}
+  <div class="card mb-4">
+    <div class="card-header flex-between">
+      <span>By Category</span>
+      {#if category}
+        <button class="btn btn-sm" onclick={() => (category = '')}>clear filter: {category}</button>
+      {/if}
     </div>
-  {:else}
-    <div class="flex-between mb-4">
-      <div class="text-muted text-sm">
-        Index: <span class="text-mono">{selected}</span>
-      </div>
-      <div class="flex-gap-2">
-        <select class="select" value={category} onchange={onCategoryChange}>
-          <option value="">All categories</option>
-          {#each categories as c}
-            <option value={c}>{c}</option>
-          {/each}
-        </select>
-        <button class="btn" onclick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
+    <div class="card-body">
+      <div bind:this={chartEl} class="bar-chart"></div>
+      {#if counts.length === 0}
+        <div class="empty">No smells detected for this index.</div>
+      {/if}
     </div>
+  </div>
 
-    {#if error}
-      <div class="card mb-4" style="border-color: var(--trusty-danger)">
-        <div class="card-body" style="color: var(--trusty-danger)">
-          {error}
-        </div>
-      </div>
-    {/if}
-
-    <div class="card">
-      <div class="card-header">Detected Smells {smells?.length ? `(${smells.length})` : ''}</div>
-      <div class="card-body" style="padding: 0">
-        {#if loading}
-          <div class="empty">Loading…</div>
-        {:else if !smells || smells.length === 0}
-          <div class="empty">No smells detected.</div>
-        {:else}
-          <table class="table">
-            <thead>
+  <div class="card">
+    <div class="card-header">
+      Detail {filtered.length ? `(${filtered.length})` : ''}
+    </div>
+    <div class="card-body" style="padding: 0">
+      {#if filtered.length === 0}
+        <div class="empty">No matching smells.</div>
+      {:else}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Function</th>
+              <th>File</th>
+              <th>Lines</th>
+              <th>Severity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each filtered.slice(0, 200) as f}
+              {@const c = f.chunk || {}}
+              {@const sev = (f.smell?.severity || '').toString()}
               <tr>
-                <th style="width: 160px">Category</th>
-                <th>File</th>
-                <th>Function</th>
-                <th>Detail</th>
+                <td><span class="badge">{f.category}</span></td>
+                <td class="text-mono text-xs">{c.function_name || '—'}</td>
+                <td class="text-muted text-xs truncate" style="max-width: 320px">{c.file || '—'}</td>
+                <td class="text-xs text-muted">{c.start_line ?? '?'}–{c.end_line ?? '?'}</td>
+                <td>
+                  {#if sev}
+                    <span class="badge sev-{sev.toLowerCase()}">{sev}</span>
+                  {:else}
+                    <span class="text-muted text-xs">—</span>
+                  {/if}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {#each smells as s}
-                <tr>
-                  <td>
-                    <span class="badge badge-warning">
-                      {s.category || s.kind || '—'}
-                    </span>
-                  </td>
-                  <td class="text-mono truncate" title={s.file || s.path}>
-                    {s.file || s.path || '—'}
-                  </td>
-                  <td class="text-mono">{s.function || s.symbol || '—'}</td>
-                  <td class="text-sm">{s.message || s.detail || s.description || '—'}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        {/if}
-      </div>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
     </div>
-  {/if}
-</div>
+  </div>
+{/if}
 
 <style>
   .page-title {
     font-size: var(--trusty-fs-xl);
+    margin: 0 0 var(--trusty-space-5) 0;
     font-weight: 600;
-    margin: 0 0 var(--trusty-space-4) 0;
+  }
+  .bar-chart {
+    width: 100%;
+    min-height: 280px;
   }
 </style>
