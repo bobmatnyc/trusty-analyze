@@ -4,6 +4,8 @@ Sidecar code-analysis daemon for trusty-search. Reads chunk corpora from
 trusty-search via HTTP, runs static analysis, and exposes results on port 7879
 via HTTP API and MCP stdio server.
 
+> **Coordination:** Shared library patterns, consistent conventions, and CI/CD configuration for this project are managed by [trusty-common](../trusty-common). See that repo's CLAUDE.md for cross-project guidelines.
+
 ## Project History
 
 trusty-analyzer is the third generation of code analysis tooling in this lineage.
