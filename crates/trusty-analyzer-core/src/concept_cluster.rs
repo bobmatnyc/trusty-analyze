@@ -189,7 +189,7 @@ pub fn cluster(
 
     // Drop empty clusters and reassign sequential ids; sort by size desc.
     clusters.retain(|c| !c.members.is_empty());
-    clusters.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
+    clusters.sort_by_key(|c| std::cmp::Reverse(c.members.len()));
     for (new_id, c) in clusters.iter_mut().enumerate() {
         c.id = new_id;
     }

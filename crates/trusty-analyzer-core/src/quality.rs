@@ -27,7 +27,7 @@ pub fn complexity_hotspots(chunks: &[CodeChunk], top_n: usize) -> Vec<CodeChunk>
         .iter()
         .map(|c| (cyclomatic_of(c), c.clone()))
         .collect();
-    scored.sort_by(|a, b| b.0.cmp(&a.0));
+    scored.sort_by_key(|a| std::cmp::Reverse(a.0));
     scored.truncate(top_n);
     scored.into_iter().map(|(_, c)| c).collect()
 }

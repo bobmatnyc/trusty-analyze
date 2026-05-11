@@ -129,20 +129,16 @@ fn walk_rust(node: Node, src: &[u8], depth: u8, state: &mut WalkState) {
             state.note_branch(depth);
             nest_inc = 1;
         }
-        "else_clause" => {
-            // Only count `else if` (an else_clause containing an if_expression)
-            // as a branch — a plain `else` block is not an independent path.
-            if has_child_kind(node, "if_expression") {
-                state.note_branch(depth);
-            }
+        // Only count `else if` as a branch — a plain `else` block is not.
+        "else_clause" if has_child_kind(node, "if_expression") => {
+            state.note_branch(depth);
         }
-        "match_arm" => {
-            // Each arm is a branch. Use first-arm heuristic: the first arm in
-            // a match adds nothing beyond the match itself.
-            if !is_first_match_arm(node) {
-                state.note_branch(depth);
-            }
+        "else_clause" => {}
+        // First arm adds nothing; each subsequent arm is a branch.
+        "match_arm" if !is_first_match_arm(node) => {
+            state.note_branch(depth);
         }
+        "match_arm" => {}
         "match_expression" => {
             nest_inc = 1;
         }
@@ -150,11 +146,10 @@ fn walk_rust(node: Node, src: &[u8], depth: u8, state: &mut WalkState) {
             state.note_branch(depth);
             nest_inc = 1;
         }
-        "binary_expression" => {
-            if is_short_circuit_op(node, src) {
-                state.note_branch(depth);
-            }
+        "binary_expression" if is_short_circuit_op(node, src) => {
+            state.note_branch(depth);
         }
+        "binary_expression" => {}
         "try_expression" => {
             // The `?` operator introduces an early-return branch.
             state.note_branch(depth);
@@ -184,19 +179,15 @@ fn walk_ts(node: Node, src: &[u8], depth: u8, state: &mut WalkState) {
             state.note_branch(depth);
             nest_inc = 1;
         }
-        "else_clause" => {
-            if has_child_kind(node, "if_statement") {
-                state.note_branch(depth);
-            }
+        "else_clause" if has_child_kind(node, "if_statement") => {
+            state.note_branch(depth);
         }
-        "switch_case" => {
-            // First case of a switch is the implicit branch the switch already
-            // gave us; subsequent cases each add one. `default` (switch_default)
-            // is not counted as a branch.
-            if !is_first_switch_case(node) {
-                state.note_branch(depth);
-            }
+        "else_clause" => {}
+        // Subsequent cases each add a branch; first case is already counted.
+        "switch_case" if !is_first_switch_case(node) => {
+            state.note_branch(depth);
         }
+        "switch_case" => {}
         "switch_statement" => {
             nest_inc = 1;
         }
@@ -205,11 +196,10 @@ fn walk_ts(node: Node, src: &[u8], depth: u8, state: &mut WalkState) {
             state.note_branch(depth);
             nest_inc = 1;
         }
-        "binary_expression" => {
-            if is_short_circuit_op(node, src) {
-                state.note_branch(depth);
-            }
+        "binary_expression" if is_short_circuit_op(node, src) => {
+            state.note_branch(depth);
         }
+        "binary_expression" => {}
         "ternary_expression" => {
             state.note_branch(depth);
         }
