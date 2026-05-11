@@ -74,9 +74,17 @@
     {/each}
   </div>
   <div class="actions">
-    <select class="select index-picker" value={selected} onchange={onPickIndex}>
+    <select
+      class="select index-picker"
+      value={selected}
+      onchange={onPickIndex}
+      disabled={indexes.length === 0}
+      title={indexes.length === 0
+        ? 'No indexes — run: trusty-search index <path>'
+        : 'Select an index to analyze'}
+    >
       {#if indexes.length === 0}
-        <option value="">no indexes</option>
+        <option value="">No indexes — run: trusty-search index &lt;path&gt;</option>
       {:else}
         <option value="" disabled>— select index —</option>
         {#each indexes as idx}

@@ -13,6 +13,19 @@ _(no unreleased changes)_
 
 ---
 
+## [0.1.2] — 2026-05-11
+
+### Added
+- Light / dark / system theme support with Catppuccin Latte + Mocha palettes
+- Svelte 5 dashboard with D3 visualizations and SSE live updates
+- launchd service install/uninstall/status/logs subcommands (macOS)
+
+### Fixed
+- Dashboard now validates selected index against trusty-search index list; stale localStorage selections are cleared on refresh
+- Empty-state guidance when no indexes are registered: "run trusty-search index <path>"
+
+---
+
 ## [0.1.0] — full Phase 1 + Phase 2 static analysis engine
 
 ### Added — Phase 1 (static analysis engine, HTTP API, MCP server)

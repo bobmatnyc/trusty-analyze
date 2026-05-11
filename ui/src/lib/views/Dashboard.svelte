@@ -76,7 +76,12 @@
   <div class="card">
     <div class="card-header">Quality Grade</div>
     <div class="card-body">
-      {#if !selected}
+      {#if indexes.length === 0}
+        <div class="empty">
+          No indexed projects found. Run <code class="text-mono">trusty-search index &lt;path&gt;</code>
+          to index a project, then refresh.
+        </div>
+      {:else if !selected}
         <div class="empty">Select an index in the top bar to load quality metrics.</div>
       {:else if !quality}
         <div class="empty">Loading…</div>
@@ -112,7 +117,11 @@
       </button>
     </div>
     <div class="card-body" style="padding: 0">
-      {#if !selected}
+      {#if indexes.length === 0}
+        <div class="empty">
+          No indexed projects. Run <code class="text-mono">trusty-search index &lt;path&gt;</code> first.
+        </div>
+      {:else if !selected}
         <div class="empty">No index selected.</div>
       {:else if top10.length === 0}
         <div class="empty">No hotspots reported.</div>

@@ -100,10 +100,18 @@ export async function refreshHealth() {
 
 export async function refreshIndexes() {
   _indexes = await api.indexes();
+
+  // The trusty-search index list is the source of truth. If the persisted
+  // selection no longer exists (index was removed, renamed, or never existed
+  // on this machine), drop it so we don't fire analysis calls for a ghost ID.
+  const ids = _indexes.map((idx) => (typeof idx === 'string' ? idx : idx.id));
+  if (_selectedIndex && !ids.includes(_selectedIndex)) {
+    setSelectedIndex('');
+  }
+
   // Auto-select first index if none active.
-  if (!_selectedIndex && _indexes.length > 0) {
-    const first = _indexes[0]?.id ?? _indexes[0];
-    if (first) setSelectedIndex(first);
+  if (!_selectedIndex && ids.length > 0) {
+    setSelectedIndex(ids[0]);
   }
   return _indexes;
 }
