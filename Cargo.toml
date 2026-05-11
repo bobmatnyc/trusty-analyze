@@ -37,6 +37,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono             = { version = "0.4",  features = ["serde"] }
 async-trait        = "0.1"
 clap               = { version = "4",    features = ["derive", "env"] }
+clap_complete      = "4"
 colored            = "2"
 dirs               = "5"
 libc               = "0.2"
@@ -45,7 +46,7 @@ redb               = "2.6"
 dashmap            = "5"
 rust-embed         = { version = "8", features = ["interpolate-folder-path"] }
 mime_guess         = "2"
-trusty-common      = { version = "0.3.1", features = ["axum-server"] }
+trusty-common      = { version = "0.3.2", features = ["axum-server"] }
 trusty-symgraph    = { version = "0.2.1", default-features = false }  # contracts surface only — no tree-sitter
 tree-sitter            = "0.24"
 tree-sitter-rust       = "0.23"
