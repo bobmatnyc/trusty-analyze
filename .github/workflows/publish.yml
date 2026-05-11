@@ -88,7 +88,7 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer-types --dry-run
           else
-            cargo publish -p trusty-analyzer-types --no-verify
+            cargo publish -p trusty-analyzer-types --no-verify --allow-dirty
           fi
 
       - name: Wait for index propagation (trusty-analyzer-types)
@@ -100,7 +100,7 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer-lang --dry-run
           else
-            cargo publish -p trusty-analyzer-lang --no-verify
+            cargo publish -p trusty-analyzer-lang --no-verify --allow-dirty
           fi
 
       - name: Wait for index propagation (trusty-analyzer-lang)
@@ -112,7 +112,7 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer-core --dry-run
           else
-            cargo publish -p trusty-analyzer-core --no-verify
+            cargo publish -p trusty-analyzer-core --no-verify --allow-dirty
           fi
 
       - name: Wait for index propagation (trusty-analyzer-core)
@@ -124,7 +124,7 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer-embedder --dry-run
           else
-            cargo publish -p trusty-analyzer-embedder --no-verify
+            cargo publish -p trusty-analyzer-embedder --no-verify --allow-dirty
           fi
 
       - name: Wait for index propagation (trusty-analyzer-embedder)
@@ -136,7 +136,7 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer-service --dry-run
           else
-            cargo publish -p trusty-analyzer-service --no-verify
+            cargo publish -p trusty-analyzer-service --no-verify --allow-dirty
           fi
 
       - name: Wait for index propagation (trusty-analyzer-service)
@@ -148,7 +148,7 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer-mcp --dry-run
           else
-            cargo publish -p trusty-analyzer-mcp --no-verify
+            cargo publish -p trusty-analyzer-mcp --no-verify --allow-dirty
           fi
 
       - name: Wait for index propagation (trusty-analyzer-mcp)
@@ -160,5 +160,5 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             cargo publish -p trusty-analyzer --dry-run
           else
-            cargo publish -p trusty-analyzer --no-verify
+            cargo publish -p trusty-analyzer --no-verify --allow-dirty
           fi
