@@ -12,7 +12,8 @@
   import {
     getSelectedIndex,
     getSmells,
-    refreshSmells
+    refreshSmells,
+    getTheme
   } from '../state.svelte.js';
 
   let selected = $derived(getSelectedIndex());
@@ -60,6 +61,13 @@
     d3.select(chartEl).selectAll('*').remove();
     const data = counts;
     if (!data.length) return;
+    const cs = getComputedStyle(document.documentElement);
+    const color = {
+      subtext: cs.getPropertyValue('--subtext').trim(),
+      border: cs.getPropertyValue('--border').trim(),
+      text: cs.getPropertyValue('--text').trim(),
+      mauve: cs.getPropertyValue('--mauve').trim()
+    };
 
     const width = chartEl.clientWidth || 800;
     const height = 280;
@@ -83,7 +91,7 @@
       .attr('transform', `translate(0,${innerH})`)
       .call(d3.axisBottom(x))
       .selectAll('text')
-      .style('fill', 'var(--subtext)')
+      .style('fill', color.subtext)
       .style('font-size', '11px')
       .attr('transform', 'rotate(-25)')
       .attr('text-anchor', 'end')
@@ -93,10 +101,10 @@
     g.append('g')
       .call(d3.axisLeft(y).ticks(5))
       .selectAll('text')
-      .style('fill', 'var(--subtext)')
+      .style('fill', color.subtext)
       .style('font-size', '11px');
 
-    g.selectAll('.domain, .tick line').style('stroke', 'var(--border)');
+    g.selectAll('.domain, .tick line').style('stroke', color.border);
 
     g.selectAll('rect.bar')
       .data(data)
@@ -106,7 +114,7 @@
       .attr('y', (d) => y(d.count))
       .attr('width', x.bandwidth())
       .attr('height', (d) => innerH - y(d.count))
-      .attr('fill', 'var(--mauve)')
+      .attr('fill', color.mauve)
       .attr('fill-opacity', 0.85)
       .style('cursor', 'pointer')
       .on('click', (_e, d) => {
@@ -120,7 +128,7 @@
       .attr('x', (d) => x(d.category) + x.bandwidth() / 2)
       .attr('y', (d) => y(d.count) - 4)
       .attr('text-anchor', 'middle')
-      .style('fill', 'var(--text)')
+      .style('fill', color.text)
       .style('font-size', '11px')
       .style('font-weight', '600')
       .text((d) => d.count);
@@ -137,6 +145,7 @@
 
   $effect(() => {
     counts;
+    getTheme();
     if (chartEl) renderBars();
   });
 </script>

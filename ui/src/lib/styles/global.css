@@ -216,7 +216,7 @@ pre {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.5);
+  background: color-mix(in srgb, var(--mantle) 70%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -365,7 +365,7 @@ pre {
 /* Severity badges for refactor suggestions */
 .sev-low { background: var(--trusty-info-soft); color: var(--trusty-info); }
 .sev-medium { background: var(--trusty-warning-soft); color: var(--trusty-warning); }
-.sev-high { background: rgba(250, 179, 135, 0.2); color: var(--orange); }
+.sev-high { background: color-mix(in srgb, var(--peach) 20%, transparent); color: var(--peach); }
 .sev-critical { background: var(--trusty-danger-soft); color: var(--trusty-danger); }
 
 /* Index picker pill */

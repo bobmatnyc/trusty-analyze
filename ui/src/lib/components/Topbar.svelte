@@ -17,8 +17,17 @@
     refreshSmells,
     refreshRefactors,
     refreshClusters,
-    getSseConnected
+    getSseConnected,
+    getTheme,
+    setTheme
   } from '../state.svelte.js';
+
+  const themes = [
+    { value: 'light', label: '☀', title: 'Light' },
+    { value: 'system', label: '⬡', title: 'System' },
+    { value: 'dark', label: '☽', title: 'Dark' }
+  ];
+  let theme = $derived(getTheme());
   import { getRoute } from '../router.svelte.js';
 
   let health = $derived(getHealth());
@@ -77,6 +86,19 @@
         {/each}
       {/if}
     </select>
+
+    <div class="theme-switcher" role="group" aria-label="Theme">
+      {#each themes as t}
+        <button
+          type="button"
+          class:active={theme === t.value}
+          title={t.title}
+          aria-label={t.title}
+          aria-pressed={theme === t.value}
+          onclick={() => setTheme(t.value)}
+        >{t.label}</button>
+      {/each}
+    </div>
 
     <span class="pill" title="Server-Sent Events stream">
       <span class="dot" class:ok={sseOn}></span>
@@ -142,5 +164,37 @@
     max-width: 320px;
     padding: 6px 10px;
     font-size: var(--trusty-fs-sm);
+  }
+  .theme-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 2px;
+    border: 1px solid var(--trusty-border);
+    border-radius: 999px;
+    background: var(--trusty-content-bg);
+  }
+  .theme-switcher button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--trusty-text-muted);
+    width: 26px;
+    height: 24px;
+    padding: 0;
+    line-height: 1;
+    border-radius: 999px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .theme-switcher button:hover {
+    color: var(--trusty-text-primary);
+  }
+  .theme-switcher button.active {
+    background: var(--trusty-accent);
+    color: var(--trusty-text-inverse);
   }
 </style>

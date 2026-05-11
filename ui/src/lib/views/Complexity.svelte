@@ -14,7 +14,8 @@
   import {
     getSelectedIndex,
     getHotspots,
-    refreshHotspots
+    refreshHotspots,
+    getTheme
   } from '../state.svelte.js';
 
   let selected = $derived(getSelectedIndex());
@@ -70,19 +71,33 @@
     return { name: 'root', children: leaves };
   }
 
-  const gradeColor = {
-    A: 'var(--grade-a)',
-    B: 'var(--grade-b)',
-    C: 'var(--grade-c)',
-    D: 'var(--grade-d)',
-    F: 'var(--grade-f)'
-  };
+  /*
+   * Why: SVG fill/stroke attributes can't reference CSS variables directly in
+   * all browsers when used inside d3-generated nodes, and we want re-render on
+   * theme change. Resolve var(--grade-*) to literal hex via getComputedStyle.
+   * What: Returns the current theme's hex for each grade letter.
+   * Test: setTheme('light'), call gradeColors().A — expect Latte green hex.
+   */
+  function gradeColors() {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (name) => cs.getPropertyValue(name).trim();
+    return {
+      A: v('--grade-a'),
+      B: v('--grade-b'),
+      C: v('--grade-c'),
+      D: v('--grade-d'),
+      F: v('--grade-f'),
+      bg: v('--bg'),
+      inverse: v('--text-inverse')
+    };
+  }
 
   function render() {
     if (!containerEl) return;
     d3.select(containerEl).selectAll('*').remove();
     const data = buildHierarchy(hotspots);
     if (!data.children.length) return;
+    const gradeColor = gradeColors();
 
     const width = containerEl.clientWidth || 800;
     const height = 480;
@@ -118,14 +133,14 @@
       .attr('height', (d) => Math.max(0, d.y1 - d.y0))
       .attr('fill', (d) => gradeColor[d.data.grade] || gradeColor.C)
       .attr('fill-opacity', 0.7)
-      .attr('stroke', 'var(--bg)')
+      .attr('stroke', gradeColor.bg)
       .attr('stroke-width', 1);
 
     nodes
       .append('text')
       .attr('x', 6)
       .attr('y', 16)
-      .attr('fill', '#11111b')
+      .attr('fill', gradeColor.inverse)
       .style('font-size', '11px')
       .style('font-weight', '600')
       .style('pointer-events', 'none')
@@ -161,8 +176,9 @@
   });
 
   $effect(() => {
-    // Re-render whenever the hotspots array changes.
+    // Re-render whenever the hotspots array or theme changes.
     hotspots;
+    getTheme();
     if (containerEl) render();
   });
 

@@ -11,6 +11,55 @@
 import { api } from './api.js';
 
 const LS_KEY = 'trusty-analyzer.selectedIndex';
+const LS_THEME_KEY = 'trusty-analyzer.theme';
+
+/*
+ * Why: Light/dark/system theme support. Applied via [data-theme] on <html>
+ * so all CSS variables in tokens.css switch atomically. Persisted in
+ * localStorage so the choice survives reload, and follows OS changes when
+ * the user picks 'system'.
+ * What: $state for the user's preference ('light' | 'dark' | 'system'), plus
+ * applyTheme() which resolves 'system' against prefers-color-scheme.
+ * Test: setTheme('light') and inspect <html data-theme>; should be 'light'.
+ */
+const _initialTheme =
+  (typeof localStorage !== 'undefined' && localStorage.getItem(LS_THEME_KEY)) ||
+  'system';
+let _theme = $state(_initialTheme);
+
+export const getTheme = () => _theme;
+
+export function applyTheme(t) {
+  if (typeof document === 'undefined') return;
+  const resolved =
+    t === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : t;
+  document.documentElement.setAttribute('data-theme', resolved);
+}
+
+export function setTheme(t) {
+  _theme = t;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(LS_THEME_KEY, t);
+  }
+  applyTheme(t);
+}
+
+// Apply on module load so first paint matches user preference.
+if (typeof document !== 'undefined') {
+  applyTheme(_initialTheme);
+  // React to OS-level changes while in 'system' mode.
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    window
+      .matchMedia('(prefers-color-scheme: dark)')
+      .addEventListener('change', () => {
+        if (getTheme() === 'system') applyTheme('system');
+      });
+  }
+}
 
 let _health = $state(null);
 let _indexes = $state([]);

@@ -21,12 +21,20 @@
   import {
     refreshHealth,
     refreshIndexes,
-    initEventStream
+    initEventStream,
+    applyTheme,
+    getTheme
   } from './lib/state.svelte.js';
   import { onDestroy, onMount } from 'svelte';
 
   let bootError = $state(null);
   let eventSource = null;
+
+  // Re-apply theme whenever the user preference changes (also handles
+  // first-paint sync for the data-theme attribute on <html>).
+  $effect(() => {
+    applyTheme(getTheme());
+  });
 
   onMount(async () => {
     try {
