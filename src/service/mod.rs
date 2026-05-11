@@ -26,10 +26,12 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::core::{
-    bow_embedding, cluster as run_cluster, extract_doc_comments, extract_kg_from_scip,
-    facts::new_fact, quality, AnalyzerRegistry, ClusterResult, FactStore, IndexSummary,
-    NerExtractor, ScipIngestSummary, TrustySearchClient,
+    analyze_refactor, bow_embedding, cluster as run_cluster, extract_doc_comments,
+    extract_kg_from_scip, facts::new_fact, quality, AnalyzerRegistry, ClusterResult, FactStore,
+    IndexSummary, NerExtractor, RefactorSuggestion, ScipIngestSummary, Severity,
+    TrustySearchClient,
 };
+use crate::core::complexity::{compute_complexity_for, detect_smells};
 use crate::embedder::{BowEmbedder, Embedder, EmbedderKind};
 use crate::types::{KgGraph, KgNode, RawEntity};
 use anyhow::Result;
@@ -124,6 +126,10 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
             get(complexity_hotspots),
         )
         .route("/indexes/{id}/smells", get(smells))
+        .route(
+            "/indexes/{id}/refactor-suggestions",
+            get(refactor_suggestions),
+        )
         .route("/indexes/{id}/quality", get(quality_report))
         .route("/indexes/{id}/graph", get(graph_for_index))
         .route("/indexes/{id}/entities", get(entities_for_index))
@@ -235,6 +241,110 @@ async fn smells(
         "count": smelly.len(),
         "chunks": smelly,
     })))
+}
+
+#[derive(Deserialize)]
+pub struct RefactorParams {
+    /// Optional path filter — only suggest refactors for chunks in this file.
+    pub file: Option<String>,
+    /// Minimum severity to include (`"low"` / `"medium"` / `"high"` /
+    /// `"critical"`). Defaults to `"low"`.
+    pub min_severity: Option<String>,
+    /// Cap on the number of suggestions returned. Defaults to 20.
+    pub top_k: Option<usize>,
+}
+
+/// Why: callers want "what should I refactor and why" — not just raw
+/// complexity numbers. This handler turns metrics + smells into actionable
+/// `RefactorSuggestion`s and sorts them by severity so the worst offenders
+/// surface first.
+/// What: fetches chunks for `id`, computes complexity per chunk (language-
+/// aware via file extension dispatch), runs `analyze_refactor`, filters by
+/// `file` and `min_severity`, sorts by `(severity desc, complexity_before
+/// desc)`, and truncates to `top_k`.
+/// Test: a chunk with grade F + LongFunction returns one Critical
+/// ExtractMethod suggestion; covered transitively via `core::refactor` tests.
+async fn refactor_suggestions(
+    State(state): State<Arc<AnalyzerAppState>>,
+    Path(id): Path<String>,
+    Query(params): Query<RefactorParams>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let chunks = fetch_chunks(&state, &id).await?;
+    let min_severity = params
+        .min_severity
+        .as_deref()
+        .and_then(Severity::parse)
+        .unwrap_or(Severity::Low);
+    let top_k = params.top_k.unwrap_or(20);
+
+    let mut out: Vec<RefactorSuggestion> = Vec::new();
+    for chunk in &chunks {
+        if let Some(file) = params.file.as_deref() {
+            if chunk.file != file {
+                continue;
+            }
+        }
+        let lang = language_for_path(&chunk.file);
+        let metrics = compute_complexity_for(&chunk.content, lang);
+        let smells = detect_smells(&chunk.content);
+        let mut suggestions = analyze_refactor(
+            &chunk.id,
+            &chunk.file,
+            chunk.start_line as u32,
+            chunk.end_line as u32,
+            chunk.function_name.as_deref(),
+            &metrics,
+            &smells,
+        );
+        suggestions.retain(|s| s.severity >= min_severity);
+        out.extend(suggestions);
+    }
+
+    out.sort_by(|a, b| {
+        b.severity
+            .cmp(&a.severity)
+            .then_with(|| b.complexity_before.cmp(&a.complexity_before))
+    });
+    out.truncate(top_k);
+
+    Ok(Json(serde_json::json!({
+        "index_id": id,
+        "count": out.len(),
+        "min_severity": min_severity_label(&min_severity),
+        "suggestions": out,
+    })))
+}
+
+fn language_for_path(path: &str) -> &'static str {
+    let lower = path.to_ascii_lowercase();
+    if lower.ends_with(".rs") {
+        "rust"
+    } else if lower.ends_with(".tsx") {
+        "tsx"
+    } else if lower.ends_with(".ts") {
+        "typescript"
+    } else if lower.ends_with(".jsx") {
+        "jsx"
+    } else if lower.ends_with(".js") {
+        "javascript"
+    } else if lower.ends_with(".py") {
+        "python"
+    } else if lower.ends_with(".go") {
+        "go"
+    } else if lower.ends_with(".java") {
+        "java"
+    } else {
+        "unknown"
+    }
+}
+
+fn min_severity_label(s: &Severity) -> &'static str {
+    match s {
+        Severity::Low => "low",
+        Severity::Medium => "medium",
+        Severity::High => "high",
+        Severity::Critical => "critical",
+    }
 }
 
 async fn quality_report(

@@ -234,6 +234,7 @@ impl AnalyzerMcpServer {
             "analyzer_health" => self.handle_analyzer_health(args).await,
             "ingest_scip" => self.handle_ingest_scip(args).await,
             "extract_ner" => self.handle_extract_ner(args).await,
+            "suggest_refactors" => self.handle_suggest_refactors(args).await,
             _ => Err(DispatchError::UnknownTool),
         }
     }
@@ -321,6 +322,19 @@ impl AnalyzerMcpServer {
 
     async fn handle_analyzer_health(&self, _args: &Value) -> Result<Value, DispatchError> {
         self.get("/health").await
+    }
+
+    async fn handle_suggest_refactors(&self, args: &Value) -> Result<Value, DispatchError> {
+        let index_id = index_id_or_default(args);
+        let top_k = args.get("top_k").and_then(Value::as_u64).unwrap_or(20);
+        let mut path = format!("/indexes/{index_id}/refactor-suggestions?top_k={top_k}");
+        if let Some(file) = args.get("file").and_then(Value::as_str) {
+            path.push_str(&format!("&file={}", urlencode(file)));
+        }
+        if let Some(sev) = args.get("min_severity").and_then(Value::as_str) {
+            path.push_str(&format!("&min_severity={}", urlencode(sev)));
+        }
+        self.get(&path).await
     }
 
     async fn handle_extract_ner(&self, args: &Value) -> Result<Value, DispatchError> {
@@ -641,6 +655,20 @@ pub fn tool_descriptors() -> Value {
                     "index":    { "type": "string" },
                     "index_id": { "type": "string", "description": "Index ID" },
                     "top_k":    { "type": "integer", "description": "Max entities to return", "default": 50 }
+                }
+            }
+        },
+        {
+            "name": "suggest_refactors",
+            "description": "Suggest concrete refactoring actions (extract method, reduce nesting, ...) ranked by severity, derived from complexity metrics and code smells",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "index":        { "type": "string" },
+                    "index_id":     { "type": "string" },
+                    "file":         { "type": "string", "description": "Optional path filter — restrict suggestions to one file" },
+                    "min_severity": { "type": "string", "description": "Minimum severity: 'low' (default), 'medium', 'high', 'critical'" },
+                    "top_k":        { "type": "number", "description": "Cap on suggestions returned (default 20)" }
                 }
             }
         },

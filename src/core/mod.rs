@@ -23,6 +23,7 @@ pub mod facts;
 pub mod linker;
 pub mod ner;
 pub mod quality;
+pub mod refactor;
 pub mod registry;
 pub mod scip;
 
@@ -31,6 +32,7 @@ pub use complexity::compute_complexity_for;
 pub use concept_cluster::{bow_embedding, cluster, ClusterResult, ConceptCluster};
 pub use facts::FactStore;
 pub use linker::link;
+pub use refactor::{analyze as analyze_refactor, RefactorSuggestion, RefactorType, Severity};
 pub use ner::{extract_doc_comments, NerExtractor};
 pub use registry::AnalyzerRegistry;
 pub use scip::{extract_kg_from_scip, index_to_graph as scip_index_to_graph, ScipIngestSummary};
