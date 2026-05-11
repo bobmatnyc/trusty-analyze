@@ -10,21 +10,17 @@
 #   from the trusty-common repo and consumed here via crates.io. The analyzer-
 #   specific crates listed below are published from THIS repo.
 #
-# Workspace publishability map:
-#   PUBLISHED (uploaded to crates.io):
-#     1. trusty-analyzer-types   — no intra-workspace deps
-#     2. trusty-analyzer-lang    — depends on trusty-analyzer-types
-#     3. trusty-analyzer-core    — depends on trusty-analyzer-types + trusty-analyzer-lang
-#     4. trusty-analyzer-mcp     — depends on trusty-analyzer-types + trusty-analyzer-core
-#
-#   NOT PUBLISHED (publish = false in Cargo.toml; workspace-internal):
-#     - trusty-embedder          — collides with an unrelated `trusty-embedder`
-#                                  crate already on crates.io
-#     - trusty-analyzer-service  — transitively depends on trusty-embedder
-#     - trusty-analyzer (bin)    — transitively depends on trusty-embedder
-#
-#   The binary `trusty-analyzer` is distributed via GitHub Releases and
-#   `cargo install --git https://github.com/bobmatnyc/trusty-analyze`.
+# Workspace publish order (each step depends only on previously published crates):
+#   1. trusty-analyzer-types      — no intra-workspace deps
+#   2. trusty-analyzer-lang       — depends on trusty-analyzer-types
+#   3. trusty-analyzer-core       — depends on trusty-analyzer-types + trusty-analyzer-lang
+#   4. trusty-analyzer-embedder   — depends on trusty-analyzer-core
+#                                   (package name; lives in crates/trusty-embedder/.
+#                                   Renamed from `trusty-embedder` to avoid colliding
+#                                   with an unrelated crate already on crates.io.)
+#   5. trusty-analyzer-service    — depends on types/core/lang/embedder
+#   6. trusty-analyzer-mcp        — depends on types + core
+#   7. trusty-analyzer (binary)   — depends on all of the above
 #
 # Required repository secret:
 #   CARGO_REGISTRY_TOKEN — crates.io API token with publish scope.
@@ -88,7 +84,7 @@ jobs:
 
       - name: Wait for index propagation (trusty-analyzer-types)
         if: ${{ inputs.dry_run != true }}
-        run: sleep 20
+        run: sleep 30
 
       - name: Publish trusty-analyzer-lang
         run: |
@@ -100,7 +96,7 @@ jobs:
 
       - name: Wait for index propagation (trusty-analyzer-lang)
         if: ${{ inputs.dry_run != true }}
-        run: sleep 20
+        run: sleep 30
 
       - name: Publish trusty-analyzer-core
         run: |
@@ -112,7 +108,31 @@ jobs:
 
       - name: Wait for index propagation (trusty-analyzer-core)
         if: ${{ inputs.dry_run != true }}
-        run: sleep 20
+        run: sleep 30
+
+      - name: Publish trusty-analyzer-embedder
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer-embedder --dry-run
+          else
+            cargo publish -p trusty-analyzer-embedder --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-analyzer-embedder)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 30
+
+      - name: Publish trusty-analyzer-service
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer-service --dry-run
+          else
+            cargo publish -p trusty-analyzer-service --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-analyzer-service)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 30
 
       - name: Publish trusty-analyzer-mcp
         run: |
@@ -122,5 +142,14 @@ jobs:
             cargo publish -p trusty-analyzer-mcp --no-verify
           fi
 
-      # Note: trusty-embedder, trusty-analyzer-service, and the trusty-analyzer
-      # binary are intentionally NOT published. See header comment for details.
+      - name: Wait for index propagation (trusty-analyzer-mcp)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 30
+
+      - name: Publish trusty-analyzer (binary)
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer --dry-run
+          else
+            cargo publish -p trusty-analyzer --no-verify
+          fi

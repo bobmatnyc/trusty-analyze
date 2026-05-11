@@ -1,5 +1,5 @@
 [package]
-name = "trusty-embedder"
+name = "trusty-analyzer-embedder"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,13 +7,9 @@ repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Embedding backends for trusty-analyzer: fastembed neural + BOW fallback (workspace-internal)"
-# Why: a crate named `trusty-embedder` already exists on crates.io and is
-# unrelated to ours. To avoid a namespace collision (and avoid renaming an
-# internal type that ripples through every call site), this crate is kept
-# workspace-internal and is not uploaded to crates.io. Any dependent crate
-# is also `publish = false`.
-publish = false
+description = "Embedding backends for trusty-analyzer: fastembed neural + BOW fallback"
+keywords = ["embeddings", "vector", "bow", "fastembed", "code-analysis"]
+categories = ["science", "development-tools"]
 
 [dependencies]
 trusty-analyzer-core = { path = "../trusty-analyzer-core", version = "0.1.0" }

@@ -2953,10 +2953,10 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "trusty-analyzer-core",
+ "trusty-analyzer-embedder",
  "trusty-analyzer-mcp",
  "trusty-analyzer-service",
  "trusty-analyzer-types",
- "trusty-embedder",
 ]
 
 [[package]]
@@ -2985,6 +2985,17 @@ dependencies = [
  "trusty-analyzer-lang",
  "trusty-analyzer-types",
  "xxhash-rust",
+]
+
+[[package]]
+name = "trusty-analyzer-embedder"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fastembed",
+ "serde",
+ "tracing",
+ "trusty-analyzer-core",
 ]
 
 [[package]]
@@ -3053,10 +3064,10 @@ dependencies = [
  "tower-http",
  "tracing",
  "trusty-analyzer-core",
+ "trusty-analyzer-embedder",
  "trusty-analyzer-lang",
  "trusty-analyzer-types",
  "trusty-common",
- "trusty-embedder",
 ]
 
 [[package]]
@@ -3070,10 +3081,11 @@ dependencies = [
 
 [[package]]
 name = "trusty-common"
-version = "0.1.3"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2eff22f03d088890813d9ca0e704cb0db6601945bf05dd6ccd6d7cbd620f670"
 dependencies = [
  "anyhow",
- "async-trait",
  "axum",
  "colored",
  "dirs 5.0.1",
@@ -3093,17 +3105,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "sha2",
-]
-
-[[package]]
-name = "trusty-embedder"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "fastembed",
- "serde",
- "tracing",
- "trusty-analyzer-core",
 ]
 
 [[package]]
@@ -3949,3 +3950,7 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
+
+[[patch.unused]]
+name = "trusty-common"
+version = "0.2.0"

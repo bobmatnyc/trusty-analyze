@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
 use trusty_analyzer_core::{facts::new_fact, AnalyzerRegistry, FactStore, TrustySearchClient};
 use trusty_analyzer_mcp::AnalyzerMcpServer;
 use trusty_analyzer_service::{serve, AnalyzerAppState, DEFAULT_PORT};
-use trusty_embedder::{BowEmbedder, Embedder, NeuralEmbedder};
+use trusty_analyzer_embedder::{BowEmbedder, Embedder, NeuralEmbedder};
 
 #[derive(Parser, Debug)]
 #[command(
