@@ -89,6 +89,13 @@ fn launchd_log_dir() -> Result<std::path::PathBuf> {
 #[cfg(target_os = "macos")]
 fn launchd_plist_body(exe: &std::path::Path, log_dir: &std::path::Path) -> String {
     let exe = exe.display();
+    // log_dir is ~/.trusty-analyzer/logs; its parent is the data dir we use as
+    // WorkingDirectory so the default relative facts path resolves to a writable
+    // location instead of `/` (the launchd default, which is read-only).
+    let data_dir = log_dir
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| log_dir.to_path_buf());
     let log_path = log_dir.join("daemon.log");
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -102,6 +109,8 @@ fn launchd_plist_body(exe: &std::path::Path, log_dir: &std::path::Path) -> Strin
     <string>{exe}</string>
     <string>serve</string>
   </array>
+  <key>WorkingDirectory</key>
+  <string>{data}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -115,6 +124,7 @@ fn launchd_plist_body(exe: &std::path::Path, log_dir: &std::path::Path) -> Strin
 </dict>
 </plist>
 "#,
+        data = data_dir.display(),
         log = log_path.display(),
     )
 }
