@@ -14,11 +14,14 @@ HTTP (port 7879) and MCP stdio.
 
 ## Installation
 
-The `trusty-analyzer` binary is distributed via GitHub Releases and `cargo install`:
+The `trusty-analyze` binary is distributed via GitHub Releases and `cargo install`:
 
 ```bash
 cargo install --git https://github.com/bobmatnyc/trusty-analyze trusty-analyzer
 ```
+
+> The crate name on crates.io is `trusty-analyzer`, but the installed binary is
+> named `trusty-analyze`.
 
 The library crates (`trusty-analyzer-types`, `trusty-analyzer-core`,
 `trusty-analyzer-lang`, `trusty-analyzer-mcp`) are published to crates.io and
@@ -43,10 +46,10 @@ trusty-analyzer-core = "0.1"
 trusty-search daemon
 
 # Run the analyzer sidecar
-trusty-analyzer serve --search-url http://127.0.0.1:7878
+trusty-analyze serve --search-url http://127.0.0.1:7878
 
 # Analyze an index
-trusty-analyzer analyze <index-id> --top-k 20
+trusty-analyze analyze <index-id> --top-k 20
 ```
 
 ## Features

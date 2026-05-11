@@ -316,8 +316,8 @@ pub async fn serve(state: AnalyzerAppState, start_port: u16) -> Result<()> {
     let start_addr: SocketAddr = ([127, 0, 0, 1], start_port).into();
     let listener = trusty_common::bind_with_auto_port(start_addr, 64).await?;
     let actual = listener.local_addr()?;
-    trusty_common::write_daemon_addr("trusty-analyzer", &actual.to_string())?;
-    tracing::info!("trusty-analyzer listening on http://{actual}");
+    trusty_common::write_daemon_addr("trusty-analyze", &actual.to_string())?;
+    tracing::info!("trusty-analyze listening on http://{actual}");
     let app = build_router(state);
     axum::serve(listener, app).await?;
     Ok(())

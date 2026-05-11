@@ -10,7 +10,7 @@ use colored::Colorize;
 /// Reverse-DNS label for the LaunchAgent. Used as the plist filename and the
 /// `Label` key — both must match for `launchctl` lookups to work.
 #[cfg(target_os = "macos")]
-const LAUNCHD_LABEL: &str = "com.trusty.trusty-analyzer";
+const LAUNCHD_LABEL: &str = "com.trusty.trusty-analyze";
 
 /// Subcommand actions for `trusty-analyzer service`.
 ///
@@ -55,7 +55,7 @@ pub fn run_service_action(action: ServiceAction) -> Result<()> {
     {
         let _ = action;
         eprintln!(
-            "{} `trusty-analyzer service` is not supported on this platform — \
+            "{} `trusty-analyze service` is not supported on this platform — \
              use your distro's service manager (systemd, OpenRC, etc.) directly.",
             "✗".red()
         );
@@ -78,7 +78,7 @@ fn launchd_log_dir() -> Result<std::path::PathBuf> {
     // `~/.trusty-analyzer/logs/` instead of `~/Library/Logs/`. Easier to find
     // and matches the convention shared by every trusty-* daemon.
     let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("could not resolve $HOME"))?;
-    let dir = home.join(".trusty-analyzer").join("logs");
+    let dir = home.join(".trusty-analyze").join("logs");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }
@@ -165,7 +165,7 @@ fn service_install() -> Result<()> {
         anyhow::bail!("launchctl bootstrap exited with {status}");
     }
     println!(
-        "{} trusty-analyzer service installed and started ({} loaded into {}).",
+        "{} trusty-analyze service installed and started ({} loaded into {}).",
         "✓".green(),
         LAUNCHD_LABEL,
         domain
@@ -173,7 +173,7 @@ fn service_install() -> Result<()> {
     println!(
         "  Logs:    {}\n  Status:  {}",
         log_dir.display().to_string().dimmed(),
-        "trusty-analyzer service status".cyan(),
+        "trusty-analyze service status".cyan(),
     );
     Ok(())
 }
@@ -191,7 +191,7 @@ fn service_uninstall() -> Result<()> {
         std::fs::remove_file(&plist_path)
             .map_err(|e| anyhow::anyhow!("remove {}: {e}", plist_path.display()))?;
         println!(
-            "{} trusty-analyzer service uninstalled ({} removed).",
+            "{} trusty-analyze service uninstalled ({} removed).",
             "✓".green(),
             plist_path.display()
         );
@@ -225,7 +225,7 @@ fn service_status() -> Result<()> {
         );
         eprintln!(
             "  Install with: {}",
-            "trusty-analyzer service install".cyan()
+            "trusty-analyze service install".cyan()
         );
         std::process::exit(1);
     }

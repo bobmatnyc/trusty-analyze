@@ -21,7 +21,7 @@ use commands::service::{run_service_action, ServiceAction as ServiceActionEnum};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "trusty-analyzer",
+    name = "trusty-analyze",
     version,
     about = "Sidecar code-analysis daemon for trusty-search"
 )]
@@ -37,7 +37,7 @@ struct Cli {
     /// Path to the redb file backing the analyzer's facts store.
     #[arg(
         long,
-        default_value = "trusty-analyzer.facts.redb",
+        default_value = "trusty-analyze.facts.redb",
         env = "TRUSTY_ANALYZER_FACTS"
     )]
     facts_path: PathBuf,
@@ -110,7 +110,7 @@ enum Cmd {
     /// Manage the trusty-analyzer background service (macOS launchd).
     ///
     /// Installs a LaunchAgent plist at
-    /// `~/Library/LaunchAgents/com.trusty.trusty-analyzer.plist` that runs the
+    /// `~/Library/LaunchAgents/com.trusty.trusty-analyze.plist` that runs the
     /// daemon in the foreground under launchd supervision. Not supported on
     /// Linux / Windows — the subcommand exits 1 with a clear message.
     Service {
@@ -369,7 +369,7 @@ async fn main() -> Result<()> {
             let reachable = TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok();
             if !reachable {
                 eprintln!(
-                    "Error: trusty-analyzer is not running on port {port}.\n       Start it with: trusty-analyzer serve"
+                    "Error: trusty-analyze is not running on port {port}.\n       Start it with: trusty-analyze serve"
                 );
                 std::process::exit(1);
             }

@@ -13,7 +13,7 @@ categories  = ["development-tools", "command-line-utilities"]
 build       = "build.rs"
 
 [[bin]]
-name = "trusty-analyzer"
+name = "trusty-analyze"
 path = "src/main.rs"
 
 [lib]
