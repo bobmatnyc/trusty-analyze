@@ -32,5 +32,11 @@ ndarray = "0.16"
 scip = "0.7"
 protobuf = "3"
 
+# Stable hash for FactRecord.id. DefaultHasher is not stable across Rust
+# toolchain versions, which silently invalidates persisted redb entries
+# after compiler upgrades. xxh3 is fast and explicitly versioned.
+# See issue bobmatnyc/trusty-search#64.
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
 [dev-dependencies]
 tempfile = "3"

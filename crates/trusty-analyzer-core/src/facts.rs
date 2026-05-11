@@ -8,9 +8,7 @@
 //! What: a redb table from `fact_id (u64)` → JSON-encoded `FactRecord`.
 //! `fact_id` is a stable hash of `(subject, predicate, object)`.
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,14 +16,39 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use redb::{Database, ReadableTable, TableDefinition};
 use trusty_analyzer_types::facts::FactRecord;
+use xxhash_rust::xxh3::Xxh3;
 
 const FACTS_TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("facts");
 
 /// Stable u64 hash of the canonical `(subject, predicate, object)` triple.
+///
+/// Why: `FactRecord.id` keys redb persistence; the hash must be stable across
+/// Rust toolchain versions so that re-asserting the same triple after a
+/// compiler upgrade still hits the same row. The previous implementation
+/// used `std::collections::hash_map::DefaultHasher`, which is explicitly
+/// *not* stable across releases (see its rustdoc), silently breaking the
+/// store on toolchain bumps. xxh3 is a fast, explicitly-versioned algorithm
+/// with no implicit per-process seed.
+///
+/// What: Feeds each field length-prefixed into an `Xxh3` hasher and returns
+/// `digest()`. Length-prefixing prevents `("ab","c","d")` and
+/// `("a","bc","d")` from colliding.
+///
+/// Test: `fact_hash("a","b","c")` is deterministic and not equal to
+/// `fact_hash("ab","","c")` — see the `fact_hash_is_stable_and_unambiguous`
+/// unit test below.
+///
+/// NOTE: This change invalidates any redb entries written before the switch
+/// from `DefaultHasher`. No migration is provided — facts are derivable from
+/// source and will be re-asserted on the next analyzer run. Tracked in
+/// issue bobmatnyc/trusty-search#64.
 pub fn fact_hash(subject: &str, predicate: &str, object: &str) -> u64 {
-    let mut h = DefaultHasher::new();
-    (subject, predicate, object).hash(&mut h);
-    h.finish()
+    let mut h = Xxh3::new();
+    for part in [subject, predicate, object] {
+        h.update(&(part.len() as u64).to_le_bytes());
+        h.update(part.as_bytes());
+    }
+    h.digest()
 }
 
 /// Build a fresh `FactRecord` with a derived `id` and current `created_at`.
@@ -227,6 +250,25 @@ mod tests {
         f.confidence = 2.5;
         store.upsert(f).unwrap();
         assert_eq!(store.all().unwrap()[0].confidence, 1.0);
+    }
+
+    #[test]
+    fn fact_hash_is_stable_and_unambiguous() {
+        // Stability: same inputs → same hash within a process run. The
+        // underlying xxh3 algorithm is also versioned and stable across
+        // Rust toolchain upgrades, which is the whole point of the switch
+        // away from DefaultHasher (issue bobmatnyc/trusty-search#64).
+        let h1 = fact_hash("a", "b", "c");
+        let h2 = fact_hash("a", "b", "c");
+        assert_eq!(h1, h2);
+
+        // Length-prefixing must prevent ambiguous concatenation collisions:
+        // ("ab","","c") and ("a","b","c") would collide under naive concat.
+        assert_ne!(fact_hash("ab", "", "c"), fact_hash("a", "b", "c"));
+
+        // Field-order sensitivity: swapping subject and object must change
+        // the hash, since the triple is directional.
+        assert_ne!(fact_hash("a", "b", "c"), fact_hash("c", "b", "a"));
     }
 
     #[test]
