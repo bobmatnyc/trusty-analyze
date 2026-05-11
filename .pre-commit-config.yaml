@@ -62,9 +62,11 @@ repos:
             venv/.*|
             \.venv/.*|
             node_modules/.*|
+            ui/node_modules/.*|
             \.git/.*|
             __pycache__/.*|
             .*\.lock|
+            .*pnpm-lock\.yaml|
             .*package-lock\.json|
             .*\.pyc
           )$

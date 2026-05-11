@@ -83,6 +83,20 @@ enum Cmd {
         #[arg(long, default_value = "http://127.0.0.1:7879")]
         analyzer_url: String,
     },
+    /// Open the analyzer dashboard UI in the default browser.
+    ///
+    /// Why: gives users a one-command path to the embedded UI without having
+    /// to remember the port or URL. Probes the daemon first so we fail loudly
+    /// with a useful message when the daemon isn't running.
+    /// What: TCP-probes `127.0.0.1:<port>`, opens `http://127.0.0.1:<port>/ui`
+    /// on success, prints a hint on failure.
+    /// Test: run with the daemon down — should print the "not running" hint
+    /// and exit non-zero. With the daemon up, should open the browser.
+    Dashboard {
+        /// Port the analyzer daemon is bound to.
+        #[arg(long, default_value_t = DEFAULT_PORT, env = "TRUSTY_ANALYZER_PORT")]
+        port: u16,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -292,6 +306,22 @@ async fn main() -> Result<()> {
         Cmd::Mcp { analyzer_url } => {
             let server = AnalyzerMcpServer::new(analyzer_url);
             trusty_analyzer_mcp::stdio::run(server).await
+        }
+        Cmd::Dashboard { port } => {
+            use std::net::{SocketAddr, TcpStream};
+            use std::time::Duration;
+            let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+            let reachable = TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok();
+            if !reachable {
+                eprintln!(
+                    "Error: trusty-analyzer is not running on port {port}.\n       Start it with: trusty-analyzer serve"
+                );
+                std::process::exit(1);
+            }
+            let url = format!("http://127.0.0.1:{port}/ui");
+            println!("Opening {url}");
+            open::that(&url).with_context(|| format!("open {url} in browser"))?;
+            Ok(())
         }
     }
 }

@@ -36,6 +36,9 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 clap = { version = "4", features = ["derive", "env"] }
 redb = "2.6"
 dashmap = "5"
+include_dir = "0.7"
+mime_guess = "2"
+open = "5"
 
 # Shared trusty-* crates (published from the trusty-common repo).
 #
@@ -57,6 +60,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Sidecar code-analysis daemon for trusty-search: complexity, smells, quality, facts"
 license = "MIT"
+build = "build.rs"
 
 [[bin]]
 name = "trusty-analyzer"
@@ -76,3 +80,4 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { workspace = true }
+open = { workspace = true }

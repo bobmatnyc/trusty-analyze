@@ -19,6 +19,8 @@
 //! Test: `cargo test -p trusty-analyzer-service` boots the router with a stub
 //! search client and exercises every route end-to-end.
 
+mod ui;
+
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -129,6 +131,9 @@ pub fn build_router(state: AnalyzerAppState) -> Router {
         .route("/indexes/{id}/scip", post(ingest_scip))
         .route("/facts", get(list_facts).post(upsert_fact))
         .route("/facts/{id}", delete(delete_fact))
+        .route("/ui", get(ui::ui_index_handler))
+        .route("/ui/", get(ui::ui_index_handler))
+        .route("/ui/{*path}", get(ui::ui_asset_handler))
         .with_state(Arc::new(state));
     trusty_common::server::with_standard_middleware(router)
 }

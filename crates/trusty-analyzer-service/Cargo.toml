@@ -21,6 +21,8 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 reqwest = { workspace = true }
+include_dir = { workspace = true }
+mime_guess = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
