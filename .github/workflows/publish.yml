@@ -1,0 +1,152 @@
+# Publishes all crates in the trusty-analyze workspace to crates.io.
+#
+# Triggered by:
+#   - Push of a tag matching v* (e.g. v0.1.0)
+#   - Manual workflow_dispatch (with optional dry-run mode)
+#   - Repository dispatch (type: publish) from trusty-common's publish workflow
+#
+# Cross-repo dependency:
+#   trusty-common (vendored here) and trusty-embedder are analyzer-specific
+#   crates distinct from the ones in the trusty-common repo.
+#   All crates in this workspace are published from this repo.
+#
+# Publish order (dependency-first within workspace):
+#   1. trusty-common          — no intra-workspace deps
+#   2. trusty-analyzer-lang   — depends on trusty-common (local)
+#   3. trusty-analyzer-core   — depends on trusty-common + trusty-analyzer-lang
+#   4. trusty-embedder        — depends on trusty-analyzer-core
+#   5. trusty-analyzer-service — depends on trusty-common + trusty-analyzer-core + trusty-analyzer-lang + trusty-embedder
+#   6. trusty-analyzer-mcp    — depends on trusty-common + trusty-analyzer-core
+#   7. trusty-analyzer (bin)  — depends on all crates above
+#
+# Required repository secret:
+#   CARGO_REGISTRY_TOKEN — crates.io API token with publish scope.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (publish --dry-run, skip actual upload)"
+        type: boolean
+        default: false
+  repository_dispatch:
+    types:
+      - publish
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  publish:
+    name: Publish crates to crates.io
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      # ── Quality gate ──────────────────────────────────────────────────────
+      - name: Clippy (workspace, all targets)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test (workspace)
+        run: cargo test --workspace
+
+      # ── Publish ───────────────────────────────────────────────────────────
+      # --no-verify skips re-building from a clean temp dir; we already built
+      # and tested above so this is safe and saves ~5 min of CI time.
+      # Dry-run path: passes --dry-run so nothing is actually uploaded.
+
+      - name: Publish trusty-common
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-common --dry-run
+          else
+            cargo publish -p trusty-common --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-common)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 20
+
+      - name: Publish trusty-analyzer-lang
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer-lang --dry-run
+          else
+            cargo publish -p trusty-analyzer-lang --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-analyzer-lang)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 20
+
+      - name: Publish trusty-analyzer-core
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer-core --dry-run
+          else
+            cargo publish -p trusty-analyzer-core --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-analyzer-core)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 20
+
+      - name: Publish trusty-embedder
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-embedder --dry-run
+          else
+            cargo publish -p trusty-embedder --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-embedder)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 20
+
+      - name: Publish trusty-analyzer-service
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer-service --dry-run
+          else
+            cargo publish -p trusty-analyzer-service --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-analyzer-service)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 20
+
+      - name: Publish trusty-analyzer-mcp
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer-mcp --dry-run
+          else
+            cargo publish -p trusty-analyzer-mcp --no-verify
+          fi
+
+      - name: Wait for index propagation (trusty-analyzer-mcp)
+        if: ${{ inputs.dry_run != true }}
+        run: sleep 20
+
+      - name: Publish trusty-analyzer (binary crate)
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            cargo publish -p trusty-analyzer --dry-run
+          else
+            cargo publish -p trusty-analyzer --no-verify
+          fi
