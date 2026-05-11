@@ -16,3 +16,5 @@ tokio = { workspace = true }
 reqwest = { workspace = true }
 async-trait = { workspace = true }
 base64 = "0.22"
+axum = { workspace = true }
+futures-util = "0.3"

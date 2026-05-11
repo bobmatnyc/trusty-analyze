@@ -54,6 +54,10 @@ enum Cmd {
         /// as a subprocess by an MCP client.
         #[arg(long)]
         mcp: bool,
+        /// Start MCP HTTP/SSE server on this port (in addition to or instead of stdio).
+        /// Exposes `POST /mcp` and `GET /mcp/sse`.
+        #[arg(long)]
+        mcp_port: Option<u16>,
         /// Path to the fastembed model cache. If the model is not present
         /// here, the neural embedder fails to load and the daemon falls
         /// back to BOW clustering.
@@ -138,6 +142,7 @@ async fn main() -> Result<()> {
         Cmd::Serve {
             port,
             mcp,
+            mcp_port,
             fastembed_cache,
         } => {
             // Hard dependency: refuse to start if trusty-search is unreachable.
@@ -176,6 +181,25 @@ async fn main() -> Result<()> {
                 }
             };
             let state = AnalyzerAppState::new(search, facts).with_embedder(embedder);
+
+            // Optionally start the MCP HTTP/SSE server on a separate port.
+            // Why: some MCP clients (and remote integrations) prefer HTTP/SSE
+            // over stdio. Spawned independently of the analyzer's own HTTP
+            // daemon so the two ports stay decoupled.
+            // What: binds `--mcp-port` and serves `POST /mcp` + `GET /mcp/sse`
+            // pointing the dispatcher at `http://127.0.0.1:<port>`.
+            // Test: pass `--mcp-port 7880`, then `curl -X POST
+            // http://127.0.0.1:7880/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`.
+            if let Some(mcp_port) = mcp_port {
+                let mcp_srv = AnalyzerMcpServer::new(format!("http://127.0.0.1:{port}"));
+                let mcp_listener = tokio::net::TcpListener::bind(("127.0.0.1", mcp_port)).await?;
+                tracing::info!("MCP HTTP/SSE server listening on port {mcp_port}");
+                tokio::spawn(async move {
+                    axum::serve(mcp_listener, trusty_analyzer_mcp::sse::router(mcp_srv))
+                        .await
+                        .ok();
+                });
+            }
 
             if mcp {
                 // Run both: HTTP daemon in a task, MCP stdio in the foreground.

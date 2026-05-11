@@ -19,6 +19,7 @@
 //! | `ingest_scip`         | `POST /indexes/:id/scip`                     |
 //! | `analyzer_health`     | `GET /health`                                |
 
+pub mod sse;
 pub mod stdio;
 
 use serde::{Deserialize, Serialize};

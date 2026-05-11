@@ -409,6 +409,40 @@ Parity rule: every HTTP endpoint has an MCP tool equivalent.
 | `ingest_scip` | `POST /indexes/:id/scip` |
 | `cluster_concepts` | `GET /indexes/:id/clusters` |
 
+### Transports
+
+The MCP server supports two transports:
+
+- **stdio**: `trusty-analyzer serve --mcp` — JSON-RPC 2.0 over stdin/stdout,
+  used by Claude Code and other clients that spawn the server as a subprocess.
+- **HTTP/SSE**: `trusty-analyzer serve --mcp-port 7880` — exposes
+  `POST /mcp` for synchronous JSON-RPC and `GET /mcp/sse` for a long-lived
+  Server-Sent Events stream with 15s keep-alive pings. Useful for remote
+  integrations and browser-based clients.
+
+Both transports share the same dispatcher (`AnalyzerMcpServer::dispatch`) and
+expose identical tool surfaces.
+
+### Claude Code Integration
+
+The repo ships a `.mcp.json` at the workspace root registering the
+analyzer's stdio transport with Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "trusty-analyzer": {
+      "command": "trusty-analyzer",
+      "args": ["serve", "--mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+Claude Code auto-discovers this file on project open. The `trusty-analyzer`
+binary must be on `PATH` (e.g. via `cargo install --path .`).
+
 ---
 
 ## Stack

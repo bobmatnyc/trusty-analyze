@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "trusty-analyzer": {
+      "command": "trusty-analyzer",
+      "args": ["serve", "--mcp"],
+      "env": {}
+    }
+  }
+}

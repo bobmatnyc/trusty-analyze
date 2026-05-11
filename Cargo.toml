@@ -81,3 +81,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { workspace = true }
 open = { workspace = true }
+axum = { workspace = true }

@@ -2851,6 +2851,7 @@ name = "trusty-analyzer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
  "open",
  "reqwest",
@@ -2926,7 +2927,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
  "base64 0.22.1",
+ "futures-util",
  "reqwest",
  "serde",
  "serde_json",
